@@ -31,7 +31,7 @@ export function copyComputerUseRuntimeExtra(sourceDir: string, runtimeDir: strin
   if (!existsSync(join(sourceDir, 'package.json'))) {
     throw new Error(`desktop runtime: Computer Use extra source is missing: ${sourceDir}`)
   }
-  for (const entry of ['lib/index.js', 'lib/code-agent.js', 'lib/preset-root.js', COMPOSITION]) {
+  for (const entry of ['lib/index.js', 'lib/code-agent.js', 'lib/preset-root.js', 'lib/user-background.js', COMPOSITION]) {
     if (!existsSync(join(sourceDir, entry))) {
       throw new Error(`desktop runtime: Computer Use extra is missing built ${entry}`)
     }
@@ -51,6 +51,7 @@ export function copyComputerUseRuntimeExtra(sourceDir: string, runtimeDir: strin
   mkdirSync(dirname(composition), { recursive: true })
   writeFileSync(composition, readFileSync(composition, 'utf8')
     .replaceAll("'../../src/index.ts'", "'../../lib/index.js'")
-    .replaceAll("'../../src/code-agent.ts'", "'../../lib/code-agent.js'"))
+    .replaceAll("'../../src/code-agent.ts'", "'../../lib/code-agent.js'")
+    .replaceAll("'../../src/user-background.ts'", "'../../lib/user-background.js'"))
   return destDir
 }

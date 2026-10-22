@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>时钟</title>
+    <link rel="stylesheet" href="clock.css">
+  </head>
+  <body>
+    <main id="chip" hidden>
+      <div id="time"></div>
+      <div id="date"></div>
+      <div id="work" hidden>
+        <div id="bar"><span id="fill"></span></div>
+        <div id="meta"><span id="phase"></span><span id="percent"></span></div>
+        <div id="left"></div>
+      </div>
+    </main>
+    <script src="clock.js"></script>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title></title>
+    <link rel="stylesheet" href="orb-face.css">
+    <link rel="stylesheet" href="reminder.css">
+  </head>
+  <body class="face-mode">
+    <main id="stage">
+      <div id="ball"><div id="ball-face"></div></div>
+      <section id="card">
+        <h1 id="title"></h1>
+        <p id="message"></p>
+        <button id="action" type="button" hidden></button>
+        <p id="hint"></p>
+      </section>
+    </main>
+    <script src="orb-face.js"></script>
+    <script src="reminder.js"></script>
+  </body>
+</html>

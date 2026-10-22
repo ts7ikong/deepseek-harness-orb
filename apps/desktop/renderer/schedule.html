@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>工作时间设置</title>
+    <link rel="stylesheet" href="schedule.css">
+  </head>
+  <body>
+    <main id="card">
+      <header id="head">
+        <h1>工作时间设置</h1>
+      </header>
+      <p id="intro">四个时间都填好后，悬浮球下面会显示今天的工作进度；都留空则只显示日期和时间。</p>
+      <div id="form">
+        <label class="row"><span>上班时间</span><input id="workStart" type="time"></label>
+        <label class="row"><span>午休开始</span><input id="lunchStart" type="time"></label>
+        <label class="row"><span>下午上班</span><input id="afternoonStart" type="time"></label>
+        <label class="row"><span>下班时间</span><input id="workEnd" type="time"></label>
+        <label class="row"><span>在悬浮球下显示时钟<small>关掉后日期、时间和进度都不显示</small></span><input id="showClock" type="checkbox"></label>
+      </div>
+      <p id="status" role="status"></p>
+      <footer>
+        <button id="save" class="primary" type="button">保存</button>
+        <button id="cancel" class="ghost" type="button">取消</button>
+      </footer>
+    </main>
+    <script src="schedule.js"></script>
+  </body>
+</html>

@@ -630,6 +630,31 @@ it('does not force-collapse or allow dock while the Computer Use session is runn
   }
 })
 
+it('keeps the panel open while an unsent draft sits in the input, and folds once it is cleared', async () => {
+  const overlay = await mountPointerOverlay()
+  try {
+    const { document, dom, api } = overlay
+    const prompt = document.querySelector('#prompt')
+    if (prompt === null) throw new Error('missing prompt')
+    const pointer = (type: 'pointerenter' | 'pointerleave') =>
+      document.body.dispatchEvent(new dom.window.Event(type, { bubbles: true }))
+    const folded = () => api.floating.setExpanded.mock.calls.some(call => call[0] === false)
+    // A fold is announced after the hover delay (180ms) plus the close animation (300ms).
+    const settle = () => new Promise(resolve => setTimeout(resolve, 900))
+    pointer('pointerenter')
+    await expect.poll(() => api.floating.setExpanded.mock.calls.some(call => call[0] === true)).toBe(true)
+    prompt.textContent = 'half-written message'
+    pointer('pointerleave')
+    await settle()
+    expect(folded()).toBe(false)
+    prompt.textContent = ''
+    pointer('pointerleave')
+    await expect.poll(folded).toBe(true)
+  } finally {
+    overlay.dom.window.close()
+  }
+})
+
 it('does not snap the ball to the window origin when the panel collapses', () => {
   const css = readFileSync(new URL('../renderer/floating.css', import.meta.url), 'utf8')
   expect(css).not.toContain('body:not(.expanded) #ball')
@@ -2388,3 +2413,144 @@ it('rebuilds the transcript iframe when the Host becomes ready again', async () 
       && post.origin === 'dsh-app://app')).toBe(true)
   } finally { dom.window.close() }
 })
+
+type ReplyFinder = (records: unknown[], marker: string, baseSeq: number) => string | undefined
+const REPORT_MARKER = '今天（2026年10月20日'
+const userEvent = (seq: number, text: string) => (
+  { type: 'event', event: { type: 'user/message', seq, data: { content: [{ type: 'text', text }] } } }
+)
+const assistantEvent = (seq: number, content: unknown, extra: Record<string, unknown> = {}) => (
+  { type: 'event', event: { type: 'assistant/message', seq, data: { message: { content }, ...extra } } }
+)
+
+async function replyFinder(): Promise<{ find: ReplyFinder; close: () => void }> {
+  const overlay = await mountPointerOverlay()
+  const find = (overlay.dom.window as unknown as { findPromptReply: ReplyFinder }).findPromptReply
+  return { find, close: () => { overlay.dom.window.close() } }
+}
+
+it('finds the last assistant message after the matching daily-report prompt', async () => {
+  const { find, close } = await replyFinder()
+  try {
+    const records = [
+      userEvent(1, '另一个问题'),
+      assistantEvent(2, [{ type: 'text', text: '旧的回答' }]),
+      userEvent(3, `${REPORT_MARKER} 周二）本机记录到的电脑使用时间`),
+      assistantEvent(4, [{ type: 'text', text: '先看看记录' }]),
+      assistantEvent(5, [{ type: 'text', text: '第一段' }, { type: 'text', text: '第二段' }]),
+    ]
+    expect(find(records, REPORT_MARKER, 0)).toBe('第一段\n第二段')
+  } finally { close() }
+})
+
+it('never takes a reply to some other prompt for the daily report', async () => {
+  const { find, close } = await replyFinder()
+  try {
+    expect(find([userEvent(1, '帮我打开微信'), assistantEvent(2, [{ type: 'text', text: '好的，已打开' }])], REPORT_MARKER, 0))
+      .toBeUndefined()
+    // A matching prompt from before the request began does not count either.
+    expect(find([userEvent(1, `${REPORT_MARKER} 旧`), assistantEvent(2, '旧回答')], REPORT_MARKER, 5)).toBeUndefined()
+  } finally { close() }
+})
+
+it('has no daily-report reply yet while the model is silent, interrupted, or empty', async () => {
+  const { find, close } = await replyFinder()
+  try {
+    const prompt = userEvent(3, REPORT_MARKER)
+    expect(find([prompt], REPORT_MARKER, 0)).toBeUndefined()
+    expect(find([prompt, assistantEvent(4, '被打断的半句', { interrupted: true })], REPORT_MARKER, 0)).toBeUndefined()
+    expect(find([prompt, assistantEvent(4, [{ type: 'text', text: '   ' }])], REPORT_MARKER, 0)).toBeUndefined()
+  } finally { close() }
+})
+
+it('reads a plain-string message body as well as a list of blocks', async () => {
+  const { find, close } = await replyFinder()
+  try {
+    expect(find([userEvent(1, REPORT_MARKER), assistantEvent(2, '直接是文本')], REPORT_MARKER, 0)).toBe('直接是文本')
+  } finally { close() }
+})
+
+it('sends the daily-report prompt, then hands the finished reply to the main process once the run ends', async () => {
+  const dom = new JSDOM(readFileSync(new URL('../renderer/floating.html', import.meta.url), 'utf8'), {
+    runScripts: 'outside-only',
+    url: 'dsh-app://shell/floating.html',
+  })
+  // The host's view of the orb session; the test plays the model by editing it.
+  const host = { running: false, asOfSeq: 4, events: [] as unknown[] }
+  const prompts: string[] = []
+  const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+    if (isRemoteStream(input)) return hangingStreamResponse(init?.signal)
+    const body = JSON.parse(String(init?.body)) as { rpcId: string; method: string; payload: { args: Record<string, unknown> } }
+    let value: unknown = {}
+    if (body.method === 'workspace/create') value = { workspace: { workspaceId: 'ws-orb' }, created: true }
+    if (body.method === 'session/create') value = { sessionId: 'session-orb', agentPreset: 'computer-use' }
+    if (body.method === 'session/modelCatalog') value = { groups: [] }
+    if (body.method === 'session/prompt') {
+      const request = body.payload.args.request as { content: { text: string }[] }
+      const text = request.content[0]?.text ?? ''
+      prompts.push(text)
+      host.running = true
+      host.asOfSeq = 6
+      host.events.push(userEvent(6, text))
+    }
+    if (body.method === 'session/list') {
+      value = { items: [{ sessionId: 'session-orb', running: host.running, projections: { asOfSeq: host.asOfSeq } }] }
+    }
+    if (body.method === 'session/page') value = { records: host.events, hasMore: false }
+    return rpcResponse(body.rpcId, value)
+  })
+  Object.defineProperty(dom.window, 'fetch', { value: fetchMock })
+  Object.defineProperty(dom.window, 'crypto', { value: globalThis.crypto })
+  let reportPrompt: ((payload: { text: string }) => Promise<void>) | undefined
+  const reportDraft = vi.fn(async (_text: string) => undefined)
+  const setSessionId = vi.fn()
+  Object.defineProperty(dom.window, 'dshDesktop', {
+    value: {
+      locale: async () => resolveDesktopLocale('en'),
+      backend: { status: async () => ({ phase: 'ready' }), subscribe: vi.fn() },
+      floating: {
+        sessionId: async () => undefined,
+        setSessionId,
+        move: vi.fn(),
+        clamp: vi.fn(),
+        setExpanded: vi.fn(async (expanded: boolean) => ({ expanded, horizontal: 'left', vertical: 'up' })),
+        orbWorkspacePath: async () => '/tmp/dsh_orb',
+        setSessionRunning: vi.fn(),
+        overlayModel: async () => ({ provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'max' }),
+        overlayPermission: async () => 'danger-full-access',
+        setOverlayPermission: vi.fn(),
+        onOverlayModel: () => () => {},
+        onSelectionPrompt: () => () => {},
+        onSelectionAttach: () => () => {},
+        onCreateSession: () => () => {},
+        onReportPrompt: (listener: (payload: { text: string }) => Promise<void>) => {
+          reportPrompt = listener
+          return () => {}
+        },
+        reportDraft,
+      },
+    },
+  })
+  runInContext(readFileSync(new URL('../renderer/floating.js', import.meta.url), 'utf8'), dom.getInternalVMContext())
+  try {
+    await expect.poll(() => setSessionId.mock.calls).toEqual([['session-orb']])
+    await expect.poll(() => reportPrompt).toBeDefined()
+    const text = `${REPORT_MARKER} 周二）本机记录到的电脑使用时间只有 不到 1 分钟……`
+    await reportPrompt?.({ text })
+    expect(prompts).toEqual([text])
+    expect(reportDraft).not.toHaveBeenCalled()
+
+    // The model answers and the run ends; the next poll notices and reads the reply.
+    host.events.push(assistantEvent(8, [{ type: 'text', text: '- 处理甲\n- 处理乙' }]))
+    host.asOfSeq = 8
+    host.running = false
+    await expect.poll(() => reportDraft.mock.calls.length, { timeout: 6000 }).toBe(1)
+    expect(reportDraft).toHaveBeenCalledWith('- 处理甲\n- 处理乙')
+
+    // The request is spent: a later poll must not open the window again.
+    await new Promise((resolve) => { setTimeout(resolve, 1800) })
+    expect(reportDraft).toHaveBeenCalledTimes(1)
+  } finally {
+    dom.window.close()
+  }
+}, 20_000)

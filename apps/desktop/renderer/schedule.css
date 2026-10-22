@@ -1,0 +1,185 @@
+/* Working-hours settings window. */
+:root {
+  --report-bg: rgb(18 20 26 / 97%);
+  --report-border: rgb(255 255 255 / 10%);
+  --report-text: #f2f4f8;
+  --report-muted: #9aa3b2;
+  --report-accent: #7fe3ff;
+  --report-warn: #ffb020;
+  --report-ok: #19e6a0;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif;
+  color: var(--report-text);
+}
+
+#card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  margin: 12px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--report-border);
+  border-radius: 18px;
+  background: var(--report-bg);
+  box-shadow: 0 10px 32px rgb(0 0 0 / 55%);
+}
+
+#head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  /* The header is the handle for moving the frameless window. */
+  -webkit-app-region: drag;
+  cursor: move;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--report-accent);
+}
+
+#date {
+  font-size: 13px;
+  color: var(--report-muted);
+}
+
+#intro {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--report-muted);
+}
+
+#text {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--report-border);
+  border-radius: 12px;
+  resize: none;
+  background: rgb(8 9 12 / 70%);
+  color: var(--report-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  outline: none;
+}
+
+#text:focus {
+  border-color: color-mix(in srgb, var(--report-accent) 60%, transparent);
+}
+
+#status {
+  min-height: 20px;
+  margin: 0;
+  font-size: 13px;
+}
+
+#status.warn { color: var(--report-warn); }
+#status.ok { color: var(--report-ok); }
+#status.error { color: #ff6b7a; }
+
+footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+button {
+  padding: 8px 18px;
+  border: 1px solid var(--report-border);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--report-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 14%);
+}
+
+button.primary {
+  border-color: transparent;
+  background: var(--report-accent);
+  color: #0b0c10;
+  font-weight: 700;
+}
+
+button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--report-accent) 85%, white);
+}
+
+button.ghost {
+  background: transparent;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button[hidden] {
+  display: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.row small {
+  display: block;
+  color: var(--report-muted);
+  font-size: 12px;
+}
+
+input[type="time"] {
+  box-sizing: border-box;
+  width: 120px;
+  padding: 7px 10px;
+  border: 1px solid var(--report-border);
+  border-radius: 10px;
+  background: rgb(8 9 12 / 70%);
+  color: var(--report-text);
+  font: inherit;
+  font-size: 15px;
+  color-scheme: dark;
+  outline: none;
+}
+
+input[type="time"]:focus {
+  border-color: color-mix(in srgb, var(--report-accent) 60%, transparent);
+}
+
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--report-accent);
+}
+
+#form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}

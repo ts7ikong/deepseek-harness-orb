@@ -21,16 +21,20 @@ describe('Computer Use Desktop runtime extra', () => {
     writeFileSync(join(source, 'lib', 'index.js'), 'export function wrapDesktopBackend() {}\nconst computerUseOverlayGuard = undefined\n')
     writeFileSync(join(source, 'lib', 'code-agent.js'), 'export {}\n')
     writeFileSync(join(source, 'lib', 'preset-root.js'), 'export {}\n')
+    writeFileSync(join(source, 'lib', 'user-background.js'), 'export {}\n')
     writeFileSync(join(source, 'lib', 'macos-sck-capture'), '')
     writeFileSync(join(source, 'presets', 'computer-use', 'agent.cordis.yml'), [
       "- id: tool-computer-use\n  name: '../../src/index.ts'\n",
       "- id: tool-code-agent\n  name: '../../src/code-agent.ts'\n",
+      "- id: user-background\n  name: '../../src/user-background.ts'\n",
     ].join(''))
     const dest = copyComputerUseRuntimeExtra(source, join(root, 'runtime'))
     const composition = readFileSync(join(dest, 'presets', 'computer-use', 'agent.cordis.yml'), 'utf8')
     expect(composition).toContain("'../../lib/index.js'")
     expect(composition).toContain("'../../lib/code-agent.js'")
+    expect(composition).toContain("'../../lib/user-background.js'")
     expect(composition).not.toContain('../../src/')
+    expect(existsSync(join(dest, 'lib', 'user-background.js'))).toBe(true)
     expect(existsSync(join(dest, 'lib', 'macos-sck-capture'))).toBe(true)
   })
 
@@ -44,8 +48,23 @@ describe('Computer Use Desktop runtime extra', () => {
     writeFileSync(join(source, 'lib', 'index.js'), 'export function apply() {}\n')
     writeFileSync(join(source, 'lib', 'code-agent.js'), 'export {}\n')
     writeFileSync(join(source, 'lib', 'preset-root.js'), 'export {}\n')
+    writeFileSync(join(source, 'lib', 'user-background.js'), 'export {}\n')
     writeFileSync(join(source, 'presets', 'computer-use', 'agent.cordis.yml'), "- id: tool-computer-use\n  name: '../../src/index.ts'\n")
     expect(() => copyComputerUseRuntimeExtra(source, join(root, 'runtime'))).toThrow(/overlay-guard wrap/u)
+  })
+
+  it('rejects a build that lacks the user-background plugin the preset mounts', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-cu-extra-nobg-'))
+    roots.push(root)
+    const source = join(root, 'source')
+    mkdirSync(join(source, 'lib'), { recursive: true })
+    mkdirSync(join(source, 'presets', 'computer-use'), { recursive: true })
+    writeFileSync(join(source, 'package.json'), '{"name":"@deepseek-ai/dsh-experimental-tool-computer-use"}\n')
+    writeFileSync(join(source, 'lib', 'index.js'), 'export function wrapDesktopBackend() {}\nconst computerUseOverlayGuard = undefined\n')
+    writeFileSync(join(source, 'lib', 'code-agent.js'), 'export {}\n')
+    writeFileSync(join(source, 'lib', 'preset-root.js'), 'export {}\n')
+    writeFileSync(join(source, 'presets', 'computer-use', 'agent.cordis.yml'), "- id: tool-computer-use\n  name: '../../src/index.ts'\n")
+    expect(() => copyComputerUseRuntimeExtra(source, join(root, 'runtime'))).toThrow(/missing built lib.user-background\.js/u)
   })
 
   it('rejects a source tree that is missing built lib entries', () => {

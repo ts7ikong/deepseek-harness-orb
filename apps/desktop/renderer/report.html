@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>日报草稿</title>
+    <link rel="stylesheet" href="report.css">
+  </head>
+  <body>
+    <main id="card">
+      <header id="head">
+        <h1 id="title">日报草稿</h1>
+        <span id="date"></span>
+      </header>
+      <p id="intro">每行一条，直接在下面修改；改好后点“记入工作日志”。</p>
+      <textarea id="text" spellcheck="false" aria-label="日报条目"></textarea>
+      <p id="status" role="status"></p>
+      <footer>
+        <button id="log" class="primary" type="button">记入工作日志</button>
+        <button id="dingtalk" class="primary" type="button" hidden>复制并打开钉钉</button>
+        <button id="copy" type="button">复制</button>
+        <button id="cancel" class="ghost" type="button">取消</button>
+      </footer>
+    </main>
+    <script src="report.js"></script>
+  </body>
+</html>

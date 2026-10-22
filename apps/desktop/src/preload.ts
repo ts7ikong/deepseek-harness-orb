@@ -31,6 +31,32 @@ const floating = {
     ipcRenderer.on(DESKTOP_IPC.floatingAvatar, handle)
     return () => { ipcRenderer.off(DESKTOP_IPC.floatingAvatar, handle) }
   },
+  /** Global pointer position in screen DIPs, so the ball's eyes can follow it anywhere. */
+  onCursor: (listener: (point: { x: number; y: number }) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, point: { x: number; y: number }): void => { listener(point) }
+    ipcRenderer.on(DESKTOP_IPC.floatingCursor, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.floatingCursor, handle) }
+  },
+  /** Whether the agent is physically driving the mouse and keyboard right now. */
+  onActing: (listener: (acting: boolean) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, acting: boolean): void => { listener(acting) }
+    ipcRenderer.on(DESKTOP_IPC.floatingActing, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.floatingActing, handle) }
+  },
+  /** The ball has just said something by itself (proactive chat); the face reacts. */
+  onSpeak: (listener: () => void) => {
+    const handle = (): void => { listener() }
+    ipcRenderer.on(DESKTOP_IPC.floatingSpeak, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.floatingSpeak, handle) }
+  },
+  /** A daily-report request from the main process: send this prompt, then hand the reply back with `reportDraft`. */
+  onReportPrompt: (listener: (payload: { text: string }) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, payload: { text: string }): void => { listener(payload) }
+    ipcRenderer.on(DESKTOP_IPC.reportPrompt, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.reportPrompt, handle) }
+  },
+  /** Give the model's finished daily-report reply to the main process, which opens the confirmation window. */
+  reportDraft: (text: string) => ipcRenderer.invoke(DESKTOP_IPC.reportDraft, text),
   onSelectionPrompt: (listener: (payload: { text: string }) => void) => {
     const handle = (_event: Electron.IpcRendererEvent, payload: { text: string }): void => { listener(payload) }
     ipcRenderer.on(DESKTOP_IPC.selectionPrompt, handle)
@@ -54,6 +80,32 @@ const floating = {
     ipcRenderer.on(DESKTOP_IPC.floatingTcc, handle)
     return () => { ipcRenderer.off(DESKTOP_IPC.floatingTcc, handle) }
   },
+}
+
+/** Used only by the reminder pop-up; the main process accepts it from that window alone. */
+const reminder = {
+  act: () => ipcRenderer.invoke(DESKTOP_IPC.reminderAction),
+}
+
+/** The clock window below the ball receives its state once a second. */
+const clock = {
+  onState: (listener: (state: unknown) => void) => {
+    const handle = (_event: unknown, state: unknown): void => { listener(state) }
+    ipcRenderer.on(DESKTOP_IPC.clockState, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.clockState, handle) }
+  },
+}
+
+/** Used only by the working-hours settings window; the main process accepts it from that window alone. */
+const schedule = {
+  get: () => ipcRenderer.invoke(DESKTOP_IPC.scheduleGet),
+  set: (form: unknown) => ipcRenderer.invoke(DESKTOP_IPC.scheduleSet, form),
+}
+
+/** Used only by the report confirmation window; the main process accepts it from that window alone. */
+const report = {
+  init: () => ipcRenderer.invoke(DESKTOP_IPC.reportInit),
+  confirm: (text: string, mode: 'log' | 'copy' | 'dingtalk') => ipcRenderer.invoke(DESKTOP_IPC.reportConfirm, text, mode),
 }
 
 const selection = {
@@ -84,5 +136,9 @@ contextBridge.exposeInMainWorld('dshDesktop', {
   locale: () => ipcRenderer.invoke(DESKTOP_IPC.floatingLocale),
   backend,
   floating,
+  reminder,
+  clock,
+  schedule,
+  report,
   selection,
 })

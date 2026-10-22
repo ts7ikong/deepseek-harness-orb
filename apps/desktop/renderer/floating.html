@@ -6,8 +6,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' dsh-app://app; img-src 'self' data:; frame-src dsh-app://app">
     <title id="page-title"></title>
     <link rel="stylesheet" href="floating.css">
+    <link rel="stylesheet" href="orb-face.css">
   </head>
-  <body>
+  <body class="face-mode">
     <section id="panel" hidden>
       <button id="history" type="button" aria-pressed="false">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -88,10 +89,12 @@
       </form>
     </section>
     <button id="ball" type="button">
+      <div id="ball-face"></div>
       <img id="ball-gif" src="deepseek-avatar-square.gif" alt="" draggable="false">
     </button>
     <button id="dock-tab" type="button" hidden aria-hidden="true"></button>
     <button id="stop" type="button" hidden></button>
+    <script src="orb-face.js"></script>
     <script src="floating.js"></script>
   </body>
 </html>

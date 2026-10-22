@@ -24,6 +24,13 @@
                 Continue a GUI action in this turn only when it does not need that result; otherwise end the turn.
                 Call code_agent_status or code_agent_stop when the user asks about or stops background work.
                 When a plugin notice reports that work finished, decide again: do remaining GUI, or call code_agent with that session_id for another stretch, then tell the user the short conclusion.
+              # The user's own standing description (dsh_orb/AGENTS.md), supplied by the user-background row below.
+              # It renders as the last prompt section; an absent file renders nothing.
+              suffix: '{{user_background}}'
+          # The {{user_background}} prompt variable the persona suffix above renders. The file is read again whenever
+          # it changes, so editing it takes effect on the next request.
+          - id: user-background
+            name: '@deepseek-ai/dsh-experimental-tool-computer-use/user-background'
           - id: tool-bash
             name: '@deepseek-ai/dsh-tool-bash'
             disabled: !!js process.platform === 'win32'

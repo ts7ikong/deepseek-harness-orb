@@ -1,0 +1,354 @@
+/*
+ * Floating-ball face: a black orb whose expressions are glowing neon lines.
+ * `--glow` is the halo color and `--line` the brighter tube color; each mood sets both and they fade
+ * between moods. Expressions are `data-mood` rules on `.orb-face`. The face has no mouth or blush:
+ * moods read from the eyes, glasses, and extras (dots, zzz, stars, pencil) alone.
+ */
+@property --glow {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1fd1f5;
+}
+
+@property --line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d4f8ff;
+}
+
+:root {
+  --face-body-light: #2b2f38;
+  --face-body-mid: #14161b;
+  --face-body-dark: #07080a;
+  /* Glasses frame: a fixed light gray, different from every mood's eye color. */
+  --face-glasses: #d7dbe3;
+}
+
+body.face-mode #ball {
+  background: radial-gradient(circle at 34% 30%, var(--face-body-light) 0%, var(--face-body-mid) 50%, var(--face-body-dark) 100%);
+}
+
+body.face-mode #ball-gif {
+  display: none;
+}
+
+body:not(.face-mode) #ball-face {
+  display: none;
+}
+
+#ball-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/*
+ * Image faces (renderer/faces/<mood>.png). The ball circle must fill the picture edge to edge:
+ * the picture is enlarged a little and shifted toward the pointer, and the circular clip above
+ * keeps the silhouette a perfect circle while it moves.
+ */
+.orb-photo {
+  display: none;
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  animation: orb-breathe 3.6s ease-in-out infinite;
+}
+
+#ball-face[data-render="image"] .orb-photo {
+  display: block;
+}
+
+#ball-face[data-render="image"] .orb-face {
+  display: none;
+}
+
+body.face-photo #ball {
+  background: none;
+}
+
+.orb-look {
+  position: absolute;
+  inset: 0;
+  transform: translate(var(--px, 0px), var(--py, 0px)) rotate(var(--tilt, 0deg)) scale(1.07);
+  transition: transform 140ms ease-out;
+}
+
+.orb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+  user-select: none;
+}
+
+.orb-img.on { opacity: 1; }
+.orb-img.top { z-index: 1; }
+
+#ball-face[data-render="image"][data-mood="happy"] .orb-photo { animation: orb-hop 0.55s ease-out 3; }
+#ball-face[data-render="image"][data-mood="celebrate"] .orb-photo { animation: orb-hop 0.5s ease-out infinite; }
+#ball-face[data-render="image"][data-mood="shy"] .orb-photo { animation: orb-hop 0.4s ease-out 2; }
+#ball-face[data-render="image"][data-mood="working"] .orb-photo { animation: orb-bob 0.8s ease-in-out infinite; }
+#ball-face[data-render="image"][data-mood="writing"] .orb-photo { animation: orb-bob 1.4s ease-in-out infinite; }
+#ball-face[data-render="image"][data-mood="thinking"] .orb-photo { animation: orb-tilt 2.2s ease-in-out infinite alternate; }
+#ball-face[data-render="image"][data-mood="curious"] .orb-photo { animation: orb-tilt 2.4s ease-in-out infinite alternate; }
+#ball-face[data-render="image"][data-mood="sleepy"] .orb-photo { animation: orb-nod 4s ease-in-out infinite; }
+#ball-face[data-render="image"][data-mood="dizzy"] .orb-photo { animation: orb-wobble 0.45s ease-in-out infinite alternate; }
+#ball-face[data-render="image"][data-mood="error"] .orb-photo { animation: none; transform: translateY(2px); }
+
+/* Drawn face */
+.orb-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  --eye-s: 1;
+  --eye-sy: 1;
+  transition: --glow 300ms ease, --line 300ms ease;
+}
+
+.orb-face .gloss {
+  fill: #fff;
+  opacity: 0.1;
+}
+
+.orb-face .rim {
+  fill: none;
+  stroke: var(--glow);
+  stroke-width: 1.2;
+  opacity: 0.4;
+  filter: drop-shadow(0 0 1.5px var(--glow));
+}
+
+.orb-face .head {
+  transform-origin: 50px 50px;
+  animation: orb-breathe 3.6s ease-in-out infinite;
+}
+
+/* The halo applies to the glowing parts only; the glasses are plain, unlit frames. */
+.orb-face .glow-layer {
+  filter: drop-shadow(0 0 1.2px var(--glow)) drop-shadow(0 0 3.4px var(--glow));
+}
+
+/* Eyes */
+.orb-face .eyes {
+  transform: translate(calc(var(--lx, 0px) + var(--px, 0px)), calc(var(--ly, 0px) + var(--py, 0px)));
+  transition: transform 140ms ease-out;
+}
+
+.orb-face .pupil {
+  fill: var(--line);
+}
+
+.orb-face .open {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(var(--eye-s), calc(var(--eye-s) * var(--eye-sy)));
+  transition: transform 90ms ease-out, opacity 120ms;
+}
+
+.orb-face .star {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 120ms;
+}
+
+.orb-face .sparkles path {
+  fill: var(--line);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.orb-face .pencil {
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.orb-face .scribble {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+}
+
+.orb-face .pencil-shaft {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 4.2;
+  stroke-linecap: round;
+}
+
+.orb-face .pencil-tip {
+  fill: none;
+  stroke: var(--glow);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.orb-face .pencil-body {
+  transform-box: fill-box;
+  transform-origin: left bottom;
+}
+
+.orb-face .happy,
+.orb-face .closed,
+.orb-face .dizzy {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 3.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.orb-face .dizzy {
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: orb-spin 0.7s linear infinite;
+}
+
+/* Glasses: shown by the moods that used to raise or lower brows (thinking, curious, surprised, error) */
+.orb-face .glasses {
+  fill: none;
+  stroke: var(--face-glasses);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform-origin: 50px 46px;
+  transition: opacity 150ms, transform 150ms;
+}
+
+.orb-face .lens {
+  fill: rgb(255 255 255 / 5%);
+}
+
+.orb-face .dots circle,
+.orb-face .zzz text {
+  fill: var(--line);
+  opacity: 0;
+}
+
+.orb-face .zzz text {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+}
+
+/* hello: the panel is open and the ball is listening; eyes open a little wider than idle */
+.orb-face[data-mood="hello"] { --eye-s: 1.1; }
+
+/* happy: task finished */
+.orb-face[data-mood="happy"] { --glow: #ffc233; --line: #fff3cc; }
+.orb-face[data-mood="happy"] .open { opacity: 0; }
+.orb-face[data-mood="happy"] .happy { opacity: 1; }
+.orb-face[data-mood="happy"] .head { animation: orb-hop 0.55s ease-out 3; }
+
+/* working: the agent holds the mouse and keyboard; narrowed, focused eyes follow the real cursor */
+.orb-face[data-mood="working"] { --glow: #19e6a0; --line: #d3ffee; --eye-sy: 0.78; }
+.orb-face[data-mood="working"] .head { animation: orb-bob 0.8s ease-in-out infinite; }
+
+/* thinking: the model is working it out; eyes drift up and to the side, dots bounce */
+.orb-face[data-mood="thinking"] { --glow: #8b7bff; --line: #e6e1ff; --lx: 4px; --ly: -3px; }
+.orb-face[data-mood="thinking"] .glasses { opacity: 1; }
+.orb-face[data-mood="thinking"] .head { animation: orb-tilt 2.2s ease-in-out infinite alternate; }
+.orb-face[data-mood="thinking"] .dots circle { animation: orb-dot 1.2s ease-in-out infinite; }
+.orb-face[data-mood="thinking"] .dots circle:nth-child(2) { animation-delay: 0.2s; }
+.orb-face[data-mood="thinking"] .dots circle:nth-child(3) { animation-delay: 0.4s; }
+
+/* celebrate: star eyes and sparkles, for good news such as knocking-off time */
+.orb-face[data-mood="celebrate"] { --glow: #ff6ec7; --line: #ffe0f4; }
+.orb-face[data-mood="celebrate"] .open { opacity: 0; }
+.orb-face[data-mood="celebrate"] .star { opacity: 1; animation: orb-pulse 0.6s ease-in-out infinite alternate; }
+.orb-face[data-mood="celebrate"] .head { animation: orb-hop 0.5s ease-out infinite; }
+.orb-face[data-mood="celebrate"] .sparkles path { animation: orb-twinkle 0.9s ease-in-out infinite; }
+.orb-face[data-mood="celebrate"] .sparkles path:nth-child(2) { animation-delay: 0.3s; }
+.orb-face[data-mood="celebrate"] .sparkles path:nth-child(3) { animation-delay: 0.6s; }
+
+/* writing: eyes down on the page, pencil scribbling; for report reminders */
+.orb-face[data-mood="writing"] { --glow: #ffb020; --line: #fff0cf; --ly: 3px; --eye-sy: 0.7; }
+.orb-face[data-mood="writing"] .head { animation: orb-bob 1.4s ease-in-out infinite; }
+.orb-face[data-mood="writing"] .pencil { opacity: 1; }
+.orb-face[data-mood="writing"] .scribble { animation: orb-scribble 1.6s linear infinite; }
+.orb-face[data-mood="writing"] .pencil-body { animation: orb-write 0.5s ease-in-out infinite alternate; }
+
+/* curious: the agent is asking something or needs a permission */
+.orb-face[data-mood="curious"] { --glow: #ffb020; --line: #fff0cf; --lx: 3px; --ly: -2px; --eye-s: 1.08; }
+.orb-face[data-mood="curious"] .glasses { opacity: 1; }
+.orb-face[data-mood="curious"] .head { animation: orb-tilt 2.4s ease-in-out infinite alternate; }
+
+/* error: disconnected or failed */
+.orb-face[data-mood="error"] { --glow: #ff4d5e; --line: #ffd6da; --eye-s: 0.92; }
+.orb-face[data-mood="error"] .glasses { opacity: 1; transform: rotate(-7deg); }
+.orb-face[data-mood="error"] .head { animation: none; transform: translateY(2px); }
+
+/* sleepy: nobody around for a while; the glow dims */
+.orb-face[data-mood="sleepy"] { --glow: #4f86ff; --line: #c9dbff; --ly: 2px; }
+.orb-face[data-mood="sleepy"] .open { opacity: 0; }
+.orb-face[data-mood="sleepy"] .closed { opacity: 1; }
+.orb-face[data-mood="sleepy"] .head { animation: orb-nod 4s ease-in-out infinite; opacity: 0.7; }
+.orb-face[data-mood="sleepy"] .zzz text { animation: orb-zzz 3s ease-in-out infinite; }
+.orb-face[data-mood="sleepy"] .zzz text:nth-child(2) { animation-delay: 1.2s; }
+
+/* surprised: the pointer just arrived */
+.orb-face[data-mood="surprised"] { --eye-s: 1.22; }
+.orb-face[data-mood="surprised"] .glasses { opacity: 1; transform: translateY(-3px); }
+
+/* shy: poked */
+.orb-face[data-mood="shy"] { --glow: #ff6fa8; --line: #ffd9ea; }
+.orb-face[data-mood="shy"] .open { opacity: 0; }
+.orb-face[data-mood="shy"] .closed { opacity: 1; }
+.orb-face[data-mood="shy"] .head { animation: orb-hop 0.4s ease-out 2; }
+
+/* dizzy: being dragged */
+.orb-face[data-mood="dizzy"] { --glow: #b57bff; --line: #eadcff; }
+.orb-face[data-mood="dizzy"] .open { opacity: 0; }
+.orb-face[data-mood="dizzy"] .dizzy { opacity: 1; }
+.orb-face[data-mood="dizzy"] .head { animation: orb-wobble 0.45s ease-in-out infinite alternate; }
+
+/* A blink wins over any mood's eye scale. */
+.orb-face[data-mood].blinking { --eye-sy: 0.1; }
+
+@keyframes orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes orb-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.6px); } }
+@keyframes orb-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-5px); } 100% { transform: translateY(0); } }
+@keyframes orb-tilt { from { transform: rotate(-7deg); } to { transform: rotate(-3deg); } }
+@keyframes orb-nod { 0%, 100% { transform: rotate(0deg) translateY(0); } 50% { transform: rotate(5deg) translateY(1.5px); } }
+@keyframes orb-wobble { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+@keyframes orb-pulse { from { transform: scale(0.9); } to { transform: scale(1.12); } }
+@keyframes orb-twinkle { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 0.95; transform: scale(1.1); } }
+@keyframes orb-scribble { 0% { stroke-dashoffset: 40; } 60%, 100% { stroke-dashoffset: 0; } }
+@keyframes orb-write { from { transform: rotate(-4deg); } to { transform: rotate(5deg) translateX(3px); } }
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-dot { 0%, 100% { opacity: 0.15; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+@keyframes orb-zzz {
+  0% { opacity: 0; transform: translateY(4px); }
+  35% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateY(-5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb-face *,
+  .orb-face,
+  .orb-photo,
+  .orb-look,
+  .orb-img {
+    animation: none !important;
+    transition: none !important;
+  }
+}

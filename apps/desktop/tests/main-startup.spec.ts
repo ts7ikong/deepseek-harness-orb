@@ -18,6 +18,21 @@ type InvokeHandler = (event: InvokeEvent, ...args: unknown[]) => unknown
 
 vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn() }))
 vi.mock('../src/selection-monitor.ts', () => ({ startSelectionMonitor: () => undefined }))
+// The cursor feed, reminder, and activity services run timers and write config files; startup tests need none of them.
+vi.mock('../src/cursor-feed.ts', () => ({ startCursorFeed: () => ({ stop() {} }) }))
+vi.mock('../src/reminder-service.ts', () => ({ startReminderService: () => ({ stop() {}, fire() {} }) }))
+vi.mock('../src/activity-recorder.ts', () => ({
+  startActivityRecorder: () => ({
+    stop() {},
+    today: () => ({ samples: [], intervalMs: 30_000, examples: [], notes: [] }),
+    settings: () => undefined,
+  }),
+}))
+vi.mock('../src/report-service.ts', () => ({ startReportService: () => ({ showDraft() {}, stop() {} }) }))
+vi.mock('../src/clock-service.ts', () => ({ startClockService: () => ({ follow() {}, stop() {} }) }))
+vi.mock('../src/schedule-service.ts', () => ({ startScheduleService: () => ({ open() {}, stop() {} }) }))
+vi.mock('../src/screen-vision.ts', () => ({ startScreenVision: () => ({ stop() {} }) }))
+vi.mock('../src/chatter.ts', () => ({ startChatter: () => ({ stop() {}, sayOnce: async () => undefined }) }))
 // Report persistence has its own unit tests; here it resolves within microtasks so the fatal
 // dialog never outlives the test that triggered it.
 vi.mock('../src/crash-report.ts', async importOriginal => ({

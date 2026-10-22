@@ -19,12 +19,17 @@
       "types": "./lib/types/code-agent.d.ts",
       "default": "./lib/code-agent.js"
     },
+    "./user-background": {
+      "types": "./lib/types/user-background.d.ts",
+      "default": "./lib/user-background.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
   "files": [
     "lib/index.js",
     "lib/code-agent.js",
+    "lib/user-background.js",
     "lib/macos-sck-capture",
     "lib/libmacos-sck-capture.dylib",
     "lib/types/**/*.d.ts"

@@ -72,6 +72,7 @@ export function floatingContextMenuTemplate(
   selection?: { readonly enabled: boolean; readonly onToggle: () => void },
   agents?: FloatingAgentMenuState,
   millifraction?: { readonly enabled: boolean; readonly onToggle: () => void },
+  onOpenWorkHours?: () => void,
 ): MenuItemConstructorOptions[] {
   const labels = { empty: messages.floatingNoModels, defaultEffort: messages.floatingEffortDefault }
   const actions: MenuItemConstructorOptions[] = [
@@ -100,6 +101,10 @@ export function floatingContextMenuTemplate(
     ]),
     { label: messages.floatingQuit, click: onQuit },
   ]
+  if (onOpenWorkHours !== undefined) {
+    const quitIndex = actions.findIndex(item => item.label === messages.floatingQuit)
+    actions.splice(quitIndex, 0, { label: WORK_HOURS_MENU_LABEL, click: onOpenWorkHours })
+  }
   if (selection !== undefined || millifraction !== undefined) {
     const extras: MenuItemConstructorOptions[] = []
     if (selection !== undefined) {
@@ -127,6 +132,9 @@ export function floatingContextMenuTemplate(
     ...actions,
   ]
 }
+
+/** Right-click item that opens the working-hours settings window. */
+export const WORK_HOURS_MENU_LABEL = '工作时间设置…'
 
 /** Collapsed circular overlay size. */
 export const FLOATING_BALL_SIZE = 72
@@ -636,6 +644,7 @@ export function createFloatingWindow(
   selection?: { readonly enabled: () => boolean; readonly toggle: () => void },
   agents?: FloatingAgentMenuSource,
   millifraction?: { readonly enabled: () => boolean; readonly toggle: () => void },
+  onOpenWorkHours?: () => void,
 ): BrowserWindow {
   const bounds = collapsedWindowBounds(defaultFloatingBallOrigin(screen.getPrimaryDisplay().workArea))
   const window = new BrowserWindow({
@@ -679,6 +688,7 @@ export function createFloatingWindow(
       selection,
       agents,
       millifraction,
+      onOpenWorkHours,
     )
   })
   return window
@@ -693,6 +703,7 @@ async function popupFloatingContextMenu(
   selection: { readonly enabled: () => boolean; readonly toggle: () => void } | undefined,
   agents: FloatingAgentMenuSource | undefined,
   millifraction: { readonly enabled: () => boolean; readonly toggle: () => void } | undefined,
+  onOpenWorkHours: (() => void) | undefined,
 ): Promise<void> {
   const catalog = agents === undefined ? undefined : await agents.loadCatalog().catch(() => undefined)
   if (window.isDestroyed()) return
@@ -712,6 +723,7 @@ async function popupFloatingContextMenu(
     millifraction === undefined
       ? undefined
       : { enabled: millifraction.enabled(), onToggle: millifraction.toggle },
+    onOpenWorkHours,
   )).popup({ window })
 }
 

@@ -309,6 +309,24 @@ describe('floating window context menu', () => {
     ])
   })
 
+  it('puts the working-hours item just above Quit when the settings window can be opened', () => {
+    const onOpenWorkHours = vi.fn()
+    const template = floatingContextMenuTemplate(
+      { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },
+      messages,
+      onOpenMain,
+      onQuit,
+      undefined,
+      undefined,
+      undefined,
+      onOpenWorkHours,
+    )
+    expect(template.slice(-2)).toEqual([
+      { label: '工作时间设置…', click: onOpenWorkHours },
+      { label: 'Quit DeepSeek Orb', click: onQuit },
+    ])
+  })
+
   it('keeps Open Main and Quit when the target is not editable', () => {
     const template = floatingContextMenuTemplate(
       { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },

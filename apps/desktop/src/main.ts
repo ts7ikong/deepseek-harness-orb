@@ -28,6 +28,21 @@ import {
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager } from './project-manager.ts'
+import { summarizeDay } from './activity-log.ts'
+import { startActivityRecorder } from './activity-recorder.ts'
+import { buildDailyReportPrompt } from './daily-report.ts'
+import { showBubble } from './bubble-window.ts'
+import { startChatter } from './chatter.ts'
+import { COLLAPSED_BALL_MAX, startClockService } from './clock-service.ts'
+import { startCursorFeed } from './cursor-feed.ts'
+import { ensureOrbPersonaFile } from './orb-persona.ts'
+import { startReminderService } from './reminder-service.ts'
+import { startScreenVision } from './screen-vision.ts'
+import { readScheduleConfig } from './work-schedule.ts'
+import { startScheduleService } from './schedule-service.ts'
+import { startReportService, type ReportKind } from './report-service.ts'
+import { buildWeeklyReportPrompt, readWorkLogDays, weekDateKeys } from './weekly-report.ts'
+import { resolveWorkLogFile } from './work-log.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError, type DesktopHostOrbCommand, type DesktopOrbHostHandlers } from './host-process.ts'
 import { captureExcludedRegionOnElectron } from './macos-sck-napi.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -923,6 +938,13 @@ async function main(): Promise<void> {
     requestAccessibility: () => systemPreferences.isTrustedAccessibilityClient(true),
     accessibilityTrusted: () => systemPreferences.isTrustedAccessibilityClient(false),
   })
+  // The working-hours window; it follows the ball, which is created just below.
+  const scheduleService = startScheduleService({
+    profileDir: paths.profile,
+    shellOrigin: `${SCHEME}://shell`,
+    preload: shellPreload,
+    ballBounds: () => (floatingShell?.isDestroyed() === false ? floatingShell.getBounds() : undefined),
+  })
   const floatingWindow = floatingShell = createFloatingWindow(shellPreload, messages, () => {
     if (mainWindow !== undefined && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus() }
   }, () => { app.quit() }, {
@@ -940,8 +962,86 @@ async function main(): Promise<void> {
       const current = readMillifractionCoordinates(paths.profile).enabled
       void confirmMillifractionEnabled(!current, floatingShell)
     },
-  })
+  }, () => { scheduleService.open() })
   floatingWindow.once('ready-to-show', () => { floatingWindow.showInactive() })
+  // Stream the pointer position to the ball so its eyes follow the cursor across the whole screen.
+  const cursorFeed = startCursorFeed(floatingWindow, DESKTOP_IPC.floatingCursor)
+  // Scheduled reminders (report time, knocking-off time) fly out of the ball and show in the middle of the screen.
+  // The foreground program and window title are sampled locally (see orb-activity.json) to build the daily report.
+  const activityRecorder = startActivityRecorder({ profileDir: paths.profile })
+  // The date, time, and work progress sit in a small click-through window under the ball (hours: orb-schedule.json).
+  const clockService = startClockService({
+    profileDir: paths.profile,
+    shellOrigin: `${SCHEME}://shell`,
+    preload: shellPreload,
+    ballBounds: () => (floatingWindow.isDestroyed() ? undefined : floatingWindow.getBounds()),
+    ballVisible: () => !floatingWindow.isDestroyed() && floatingWindow.isVisible(),
+  })
+  const followBall = (): void => { clockService.follow() }
+  floatingWindow.on('move', followBall)
+  floatingWindow.on('resize', followBall)
+  floatingWindow.on('show', followBall)
+  floatingWindow.on('hide', followBall)
+  // Every few minutes one sentence about the screen is kept for the daily report (orb-vision.json; screenshots are not saved).
+  const screenVision = startScreenVision({ profileDir: paths.profile, activity: () => activityRecorder.settings() })
+  // Now and then the ball says one short line by itself, in a bubble beside it (orb-chatter.json).
+  const chatter = startChatter({
+    profileDir: paths.profile,
+    workspaceDir: paths.orbWorkspace,
+    schedule: () => readScheduleConfig(paths.profile).config,
+    notes: () => activityRecorder.today().notes,
+    collapsed: () => !floatingWindow.isDestroyed() && floatingWindow.getBounds().width <= COLLAPSED_BALL_MAX,
+    onSpeak: (text) => {
+      if (floatingWindow.isDestroyed()) return
+      showBubble(text, { shellOrigin: `${SCHEME}://shell`, preload: shellPreload, ball: floatingWindow.getBounds() })
+      floatingWindow.webContents.send(DESKTOP_IPC.floatingSpeak)
+    },
+  })
+  const reportService = startReportService({
+    profileDir: paths.profile,
+    shellOrigin: `${SCHEME}://shell`,
+    preload: shellPreload,
+    settings: () => activityRecorder.settings(),
+    ballBounds: () => (floatingWindow.isDestroyed() ? undefined : floatingWindow.getBounds()),
+  })
+  // The ball sends the prompt to the model; when the reply is done the ball hands it back (reportDraft) for confirmation.
+  let requestedReport: ReportKind = 'daily'
+  const askForReport = (kind: ReportKind, text: string): void => {
+    if (floatingWindow.isDestroyed()) return
+    requestedReport = kind
+    floatingWindow.showInactive()
+    floatingWindow.webContents.send(DESKTOP_IPC.reportPrompt, { text })
+  }
+  const askForDailyReport = (): void => {
+    const { samples, intervalMs, examples, notes } = activityRecorder.today()
+    askForReport('daily', buildDailyReportPrompt(summarizeDay(samples, intervalMs), new Date(), examples, notes))
+  }
+  // The weekly report is built from the week's work-log entries, so it is only as good as the daily ones.
+  const askForWeeklyReport = (): void => {
+    const now = new Date()
+    const file = resolveWorkLogFile(activityRecorder.settings()?.workLogFile ?? '', paths.profile)
+    askForReport('weekly', buildWeeklyReportPrompt(readWorkLogDays(file, weekDateKeys(now)), now))
+  }
+  const reminderService = startReminderService({
+    profileDir: paths.profile,
+    shellOrigin: `${SCHEME}://shell`,
+    ballBounds: () => (floatingWindow.isDestroyed() ? undefined : floatingWindow.getBounds()),
+    preload: shellPreload,
+    onAction: (entry) => {
+      if (entry.action === 'daily-report') askForDailyReport()
+      if (entry.action === 'weekly-report') askForWeeklyReport()
+    },
+  })
+  app.on('will-quit', () => {
+    cursorFeed.stop()
+    clockService.stop()
+    screenVision.stop()
+    chatter.stop()
+    scheduleService.stop()
+    reminderService.stop()
+    reportService.stop()
+    activityRecorder.stop()
+  })
   floatingWindow.on('focus', () => { publishTcc() })
   void floatingWindow.loadURL(`${SCHEME}://shell/floating.html`)
   const toolbar = createSelectionToolbarWindow(shellPreload)
@@ -974,8 +1074,12 @@ async function main(): Promise<void> {
     if (toolbarWindow !== undefined && !toolbarWindow.isDestroyed()) {
       applyFloatingOverlayGuard(toolbarWindow, event.mode, event.action)
     }
-    if (event.mode === 'input') selectionController.setHidInput(event.action === 'begin')
-    const ids = overlayWindowExcludeIds(floatingShell, toolbarWindow, observationFrameWindow)
+    if (event.mode === 'input') {
+      selectionController.setHidInput(event.action === 'begin')
+      // The ball's face shows "acting" only while the agent really holds the mouse and keyboard.
+      if (!floatingShell.isDestroyed()) floatingShell.webContents.send(DESKTOP_IPC.floatingActing, event.action === 'begin')
+    }
+    const ids =overlayWindowExcludeIds(floatingShell, toolbarWindow, observationFrameWindow)
     if (event.mode === 'input' && event.action === 'begin') {
       blurMainIfFocused()
       try {
@@ -1049,6 +1153,8 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.floatingOrbWorkspace, (event) => {
     shellSender(event)
     ensureOrbWorkspaceDir(paths.orbWorkspace)
+    // The ball's standing instructions live in this workspace's AGENTS.md; give a new user a starter to fill in.
+    ensureOrbPersonaFile(paths.orbWorkspace)
     return paths.orbWorkspace
   })
   ipcMain.handle(DESKTOP_IPC.floatingFocusMain, (event) => {
@@ -1084,6 +1190,11 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.floatingAvatarGet, (event) => {
     shellSender(event)
     return orbAvatarUrl('shell', orbAvatarCacheToken(paths.profile))
+  })
+  ipcMain.handle(DESKTOP_IPC.reportDraft, (event, text: unknown) => {
+    shellSender(event)
+    if (typeof text !== 'string' || text.trim() === '') throw new Error('dsh desktop: report draft requires text')
+    reportService.showDraft(text, requestedReport)
   })
   ipcMain.handle(DESKTOP_IPC.floatingTccGet, (event) => {
     shellSender(event)

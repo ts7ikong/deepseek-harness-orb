@@ -4,6 +4,11 @@ const COLLAPSE_MS = 180
 const ANIMATION_MS = 300
 const DOCK_HOVER_DELAY_MS = 800
 const DOCK_DRAG_OFF_PX = 24
+// A daily-report reply is looked for this long after its prompt, re-reading a few times while the host settles.
+const REPORT_WATCH_MS = 15 * 60 * 1000
+const REPORT_READ_ATTEMPTS = 5
+const REPORT_READ_RETRY_MS = 800
+const REPORT_MARKER_CHARS = 30
 const REMOTE_STREAM_URL = 'dsh-app://app/.dsh/remote-stream'
 const USER_QUESTION_CANCELLED = 'the user cancelled ask_user_question'
 const RECOMMENDED_SUFFIX = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i
@@ -55,6 +60,45 @@ function overlayThemeMessage(data) {
   if (data.type !== OVERLAY_THEME_MESSAGE_TYPE) return undefined
   if (data.colorScheme !== 'light' && data.colorScheme !== 'dark') return undefined
   return data
+}
+
+/** Plain text of a message's content, which is a string or a list of blocks. */
+function contentText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((block) => {
+      if (typeof block === 'string') return block
+      return typeof block?.text === 'string' && (block.type === undefined || block.type === 'text') ? block.text : ''
+    })
+    .filter(part => part !== '')
+    .join('\n')
+}
+
+/**
+ * The finished reply to one prompt, read from a session history page.
+ * @param records - history records, oldest first.
+ * @param marker - text the prompt began with, so a reply to some other prompt is never taken for it.
+ * @param baseSeq - events up to this sequence number came before the prompt.
+ * @returns the last assistant message after the prompt, or undefined when there is none yet.
+ */
+function findPromptReply(records, marker, baseSeq) {
+  let promptSeq
+  for (const record of records) {
+    const event = record?.event
+    if (event?.type === 'user/message' && event.seq > baseSeq && contentText(event.data?.content).includes(marker)) {
+      promptSeq = event.seq
+    }
+  }
+  if (promptSeq === undefined) return undefined
+  let reply
+  for (const record of records) {
+    const event = record?.event
+    if (event?.type !== 'assistant/message' || event.seq <= promptSeq || event.data?.interrupted === true) continue
+    const text = contentText(event.data?.message?.content).trim()
+    if (text !== '') reply = text
+  }
+  return reply
 }
 
 function composeSelectionSendPrompt(instruction, selection) {
@@ -327,8 +371,31 @@ async function main() {
   let eventsBackoff = 500
   let hostReady = false
   let hostGeneration = 0
+  let cancelRequested = false
+  let acting = false
+  // Newest durable event number the host reported for the orb session, and a daily-report request awaiting its reply.
+  let lastAsOfSeq = -1
+  let reportWatch
 
   if (sessionId !== undefined) orbSessionIds.add(sessionId)
+
+  const face = window.OrbFace?.create(document.querySelector('#ball-face'), {
+    pointerTarget: ball,
+    // With the Desktop cursor feed the eyes follow the pointer across the whole screen, not just over the ball.
+    localLook: typeof api.floating.onCursor !== 'function',
+    getState: () => ({
+      running,
+      acting,
+      asking: asking(),
+      tcc: gatingTcc(),
+      expanded,
+      dragging,
+      disconnected: status.textContent !== '',
+    }),
+  })
+  api.floating.onCursor?.(point => { face?.lookAtScreen(point.x, point.y) })
+  api.floating.onActing?.(next => { acting = next === true })
+  api.floating.onSpeak?.(() => { face?.pulse('hello', 3500) })
 
   function pageClosed() {
     return globalThis.document?.body == null
@@ -358,6 +425,8 @@ async function main() {
     gifSrc = url
     const gif = document.querySelector('#ball-gif')
     if (gif === null || pageClosed()) return
+    // Cache token 0 means no custom image is stored: the expressive face is the default ball.
+    document.body.classList.toggle('face-mode', /[?&]v=0(?:&|$)/.test(url))
     gif.src = gifSrc
     if (gif.dataset.mode === 'still') freezeGif(gif)
   }
@@ -410,6 +479,8 @@ async function main() {
 
   function setRunning(next) {
     running = next
+    // A finished run cannot still hold the mouse; a missed "end" must not leave the face stuck on acting.
+    if (!next) acting = false
     if (pageClosed()) return
     document.body.classList.toggle('running', running)
     stop.hidden = !expanded || !running
@@ -501,7 +572,7 @@ async function main() {
       await refreshTccGate({ revealIfMissing: true })
       return
     }
-    if (!force && (pinned || running || asking() || gatingTcc() || hasSelectionChip())) return
+    if (!force && (pinned || running || asking() || gatingTcc() || hasSelectionChip() || composing())) return
     expanded = false
     document.body.classList.remove('expanded')
     if (docked !== undefined) dockTab.hidden = false
@@ -524,8 +595,16 @@ async function main() {
     return { dx: event.clientX - rect.left, dy: event.clientY - rect.top }
   }
 
+  /**
+   * True while the user is writing: the input has focus or holds an unsent draft.
+   * `activeElement` survives the window losing focus, so focus also requires `hasFocus()`.
+   */
+  function composing() {
+    return (document.hasFocus() && document.activeElement === prompt) || promptText(prompt).trim() !== ''
+  }
+
   function scheduleCollapse() {
-    if (pinned || running || asking() || gatingTcc() || dragging || hasSelectionChip()) return
+    if (pinned || running || asking() || gatingTcc() || dragging || hasSelectionChip() || composing()) return
     if (collapseTimer !== undefined) clearTimeout(collapseTimer)
     collapseTimer = setTimeout(() => {
       collapseTimer = undefined
@@ -871,13 +950,53 @@ async function main() {
     await refreshOverlay()
   }
 
+  /**
+   * After a daily-report prompt finishes, read the model's reply and hand it to the main process,
+   * which opens the confirmation window. Gives up quietly when the run produced no reply.
+   */
+  async function deliverReport() {
+    const watch = reportWatch
+    reportWatch = undefined
+    if (watch === undefined || sessionId === undefined || Date.now() - watch.at > REPORT_WATCH_MS) return
+    const id = sessionId
+    for (let attempt = 0; attempt < REPORT_READ_ATTEMPTS; attempt += 1) {
+      if (attempt > 0) await new Promise((resolve) => { setTimeout(resolve, REPORT_READ_RETRY_MS) })
+      try {
+        const list = await rpc('session/list', { _request: {} })
+        const cut = (list.items ?? []).find(item => item.sessionId === id)?.projections?.asOfSeq
+        if (typeof cut !== 'number') continue
+        const page = await rpc('session/page', {
+          request: { address: { kind: 'session', sessionId: id }, throughSeq: cut, maxMessages: 12 },
+        })
+        const reply = findPromptReply(page.records ?? [], watch.marker, watch.baseSeq)
+        if (reply !== undefined) {
+          await api.floating.reportDraft?.(reply)
+          return
+        }
+      } catch {
+        // The history cut can trail the final message for a moment; try again.
+      }
+    }
+  }
+
   async function refreshOverlay() {
     if (pageClosed()) return
     try {
       const list = await rpc('session/list', { _request: {} })
       const items = list.items ?? []
       const row = sessionId === undefined ? undefined : items.find(item => item.sessionId === sessionId)
+      if (typeof row?.projections?.asOfSeq === 'number') lastAsOfSeq = row.projections.asOfSeq
+      const wasRunning = running
       setRunning(row?.running === true)
+      if (wasRunning && !running) {
+        // A stop the user asked for is not a success worth celebrating, and no report is expected from it.
+        if (cancelRequested) reportWatch = undefined
+        else {
+          face?.pulse('happy', 3200)
+          void deliverReport()
+        }
+        cancelRequested = false
+      }
       if (historyOpen) {
         await renderHistory(items)
         return
@@ -996,6 +1115,12 @@ async function main() {
           pendingBySession.delete(agentId)
           syncQuestion()
         }
+      }
+      return
+    }
+    if (frame?.type === 'emit') {
+      if (frame.event === 'api-session/error' && Array.isArray(frame.args) && orbSessionIds.has(frame.args[0])) {
+        face?.pulse('error', 4500)
       }
       return
     }
@@ -1155,6 +1280,8 @@ async function main() {
   })
   document.addEventListener('focusout', event => {
     void api.floating.setTextEditing?.(editableTarget(event.relatedTarget))
+    // Leaving the input while the pointer is already away is the moment a held-open panel may fold.
+    if (!dockPointerInside) scheduleCollapse()
   })
   document.addEventListener('pointerup', event => {
     if (!isPrimaryButton(event) || !running || editableTarget(event.target)) return
@@ -1272,6 +1399,15 @@ async function main() {
     void finishPointer(event)
   })
 
+  api.floating.onReportPrompt?.(async payload => {
+    const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
+    if (text === '') return
+    setHistoryOpen(false)
+    setPermissionOpen(false)
+    await setExpanded(true, true)
+    reportWatch = { marker: text.slice(0, REPORT_MARKER_CHARS), baseSeq: lastAsOfSeq, at: Date.now() }
+    await promptOverlay(text)
+  })
   api.floating.onSelectionPrompt(async payload => {
     const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
     if (text === '') return
@@ -1348,6 +1484,7 @@ async function main() {
   })
   stop.addEventListener('click', async () => {
     if (sessionId === undefined) return
+    cancelRequested = true
     await rpc('session/cancel', { request: { sessionId } })
     await refreshOverlay()
   })
