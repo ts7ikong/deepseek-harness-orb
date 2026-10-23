@@ -1,6 +1,6 @@
 /** Checks the reminder schedule on a timer and shows what is due, one pop-up at a time. */
 
-import { statSync } from 'node:fs'
+import { appendFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain, shell, type BrowserWindow } from 'electron'
 import { DESKTOP_IPC } from './ipc.ts'
@@ -20,6 +20,9 @@ import {
 
 /** How often the schedule is checked; reminders therefore appear within this long of their time. */
 export const REMINDER_CHECK_MS = 15_000
+
+/** Profile-relative log of when each reminder fired and was dismissed, for finding out why one was missed. */
+export const REMINDER_LOG_FILE = 'orb-reminders.log'
 
 const DISMISS_HINT = '点击任意处关闭'
 
@@ -67,6 +70,14 @@ export function startReminderService(options: {
     if (entry.action !== undefined) options.onAction(entry)
   })
 
+  function record(message: string): void {
+    try {
+      appendFileSync(join(options.profileDir, REMINDER_LOG_FILE), `${new Date().toISOString()} ${message}` + String.fromCharCode(10))
+    } catch {
+      // The log is a convenience; a failure to write it must not stop a reminder.
+    }
+  }
+
   function reloadConfig(): void {
     let stamp = -1
     try {
@@ -99,7 +110,9 @@ export function startReminderService(options: {
           preload: options.preload,
         })
         current = { entry, window: shown.window }
+        record(`shown ${entry.id}`)
         await shown.closed
+        record(`closed ${entry.id}`)
         current = undefined
       }
     } finally {
@@ -120,6 +133,7 @@ export function startReminderService(options: {
     const due = dueReminders(alignOffWork(config, readScheduleConfig(options.profileDir).config?.workEnd), now, fired)
     if (due.length === 0) return
     // Record before showing so a crash or restart cannot show the same reminder twice.
+    record(`due ${due.map(entry => entry.id).join(',')}`)
     fired = markReminderFired(fired, due.map(entry => entry.id), now)
     writeReminderState(options.profileDir, fired)
     for (const entry of due) enqueue(entry)

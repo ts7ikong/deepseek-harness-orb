@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>工作记录</title>
+    <link rel="stylesheet" href="worklog.css">
+  </head>
+  <body>
+    <main id="card">
+      <header id="head">
+        <h1>工作记录</h1>
+        <span id="count"></span>
+      </header>
+      <p id="path"></p>
+      <div id="list"></div>
+      <p id="status" role="status"></p>
+      <footer>
+        <button id="open-log" type="button">打开记录文件</button>
+        <button id="open-weekly" type="button">周报文件夹</button>
+        <button id="close" class="primary" type="button">关闭</button>
+      </footer>
+    </main>
+    <script src="worklog.js"></script>
+  </body>
+</html>

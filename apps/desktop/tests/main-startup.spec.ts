@@ -33,6 +33,7 @@ vi.mock('../src/clock-service.ts', () => ({ startClockService: () => ({ follow()
 vi.mock('../src/schedule-service.ts', () => ({ startScheduleService: () => ({ open() {}, stop() {} }) }))
 vi.mock('../src/screen-vision.ts', () => ({ startScreenVision: () => ({ stop() {} }) }))
 vi.mock('../src/chatter.ts', () => ({ startChatter: () => ({ stop() {}, sayOnce: async () => undefined }) }))
+vi.mock('../src/worklog-service.ts', () => ({ startWorkLogService: () => ({ open() {}, stop() {} }) }))
 // Report persistence has its own unit tests; here it resolves within microtasks so the fatal
 // dialog never outlives the test that triggered it.
 vi.mock('../src/crash-report.ts', async importOriginal => ({

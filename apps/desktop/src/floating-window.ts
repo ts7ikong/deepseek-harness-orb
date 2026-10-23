@@ -73,6 +73,7 @@ export function floatingContextMenuTemplate(
   agents?: FloatingAgentMenuState,
   millifraction?: { readonly enabled: boolean; readonly onToggle: () => void },
   onOpenWorkHours?: () => void,
+  onOpenWorkLog?: () => void,
 ): MenuItemConstructorOptions[] {
   const labels = { empty: messages.floatingNoModels, defaultEffort: messages.floatingEffortDefault }
   const actions: MenuItemConstructorOptions[] = [
@@ -101,9 +102,12 @@ export function floatingContextMenuTemplate(
     ]),
     { label: messages.floatingQuit, click: onQuit },
   ]
-  if (onOpenWorkHours !== undefined) {
+  const personal: MenuItemConstructorOptions[] = []
+  if (onOpenWorkLog !== undefined) personal.push({ label: WORK_LOG_MENU_LABEL, click: onOpenWorkLog })
+  if (onOpenWorkHours !== undefined) personal.push({ label: WORK_HOURS_MENU_LABEL, click: onOpenWorkHours })
+  if (personal.length > 0) {
     const quitIndex = actions.findIndex(item => item.label === messages.floatingQuit)
-    actions.splice(quitIndex, 0, { label: WORK_HOURS_MENU_LABEL, click: onOpenWorkHours })
+    actions.splice(quitIndex, 0, ...personal)
   }
   if (selection !== undefined || millifraction !== undefined) {
     const extras: MenuItemConstructorOptions[] = []
@@ -135,6 +139,9 @@ export function floatingContextMenuTemplate(
 
 /** Right-click item that opens the working-hours settings window. */
 export const WORK_HOURS_MENU_LABEL = '工作时间设置…'
+
+/** Right-click item that opens the work log window. */
+export const WORK_LOG_MENU_LABEL = '查看工作记录…'
 
 /** Collapsed circular overlay size. */
 export const FLOATING_BALL_SIZE = 72
@@ -645,6 +652,7 @@ export function createFloatingWindow(
   agents?: FloatingAgentMenuSource,
   millifraction?: { readonly enabled: () => boolean; readonly toggle: () => void },
   onOpenWorkHours?: () => void,
+  onOpenWorkLog?: () => void,
 ): BrowserWindow {
   const bounds = collapsedWindowBounds(defaultFloatingBallOrigin(screen.getPrimaryDisplay().workArea))
   const window = new BrowserWindow({
@@ -689,6 +697,7 @@ export function createFloatingWindow(
       agents,
       millifraction,
       onOpenWorkHours,
+      onOpenWorkLog,
     )
   })
   return window
@@ -704,6 +713,7 @@ async function popupFloatingContextMenu(
   agents: FloatingAgentMenuSource | undefined,
   millifraction: { readonly enabled: () => boolean; readonly toggle: () => void } | undefined,
   onOpenWorkHours: (() => void) | undefined,
+  onOpenWorkLog: (() => void) | undefined,
 ): Promise<void> {
   const catalog = agents === undefined ? undefined : await agents.loadCatalog().catch(() => undefined)
   if (window.isDestroyed()) return
@@ -724,6 +734,7 @@ async function popupFloatingContextMenu(
       ? undefined
       : { enabled: millifraction.enabled(), onToggle: millifraction.toggle },
     onOpenWorkHours,
+    onOpenWorkLog,
   )).popup({ window })
 }
 

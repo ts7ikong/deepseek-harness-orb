@@ -327,6 +327,27 @@ describe('floating window context menu', () => {
     ])
   })
 
+  it('lists the work log before the working hours, both just above Quit', () => {
+    const onOpenWorkHours = vi.fn()
+    const onOpenWorkLog = vi.fn()
+    const template = floatingContextMenuTemplate(
+      { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },
+      messages,
+      onOpenMain,
+      onQuit,
+      undefined,
+      undefined,
+      undefined,
+      onOpenWorkHours,
+      onOpenWorkLog,
+    )
+    expect(template.slice(-3)).toEqual([
+      { label: '查看工作记录…', click: onOpenWorkLog },
+      { label: '工作时间设置…', click: onOpenWorkHours },
+      { label: 'Quit DeepSeek Orb', click: onQuit },
+    ])
+  })
+
   it('keeps Open Main and Quit when the target is not editable', () => {
     const template = floatingContextMenuTemplate(
       { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },

@@ -24,8 +24,20 @@ export function reminderWindowSize(entry: ReminderEntry): { readonly width: numb
 /** Duration of the flight from the ball to the middle of the screen. */
 export const REMINDER_FLIGHT_MS = 650
 
-/** A reminder nobody clicked closes itself after this long. */
-export const REMINDER_AUTO_DISMISS_MS = 60_000
+/** A plain reminder nobody clicked closes itself after this long. */
+export const REMINDER_AUTO_DISMISS_MS = 5 * 60_000
+
+/** One with a button waits longer, so stepping away from the desk does not make the user miss it. */
+export const REMINDER_ACTION_DISMISS_MS = 30 * 60_000
+
+/**
+ * How long a reminder stays when nobody clicks it.
+ * @param entry - the reminder.
+ * @returns milliseconds.
+ */
+export function reminderDismissMs(entry: ReminderEntry): number {
+  return entry.action === undefined ? REMINDER_AUTO_DISMISS_MS : REMINDER_ACTION_DISMISS_MS
+}
 
 const REMINDER_FADE_IN_MS = 240
 const FRAME_MS = 16
@@ -168,7 +180,7 @@ export function showReminder(
   const closed = new Promise<void>((resolve) => {
     const dismissTimer = setTimeout(() => {
       if (!window.isDestroyed()) window.close()
-    }, REMINDER_AUTO_DISMISS_MS)
+    }, reminderDismissMs(entry))
     window.once('closed', () => {
       clearTimeout(dismissTimer)
       resolve()

@@ -39,6 +39,7 @@ import { ensureOrbPersonaFile } from './orb-persona.ts'
 import { startReminderService } from './reminder-service.ts'
 import { startScreenVision } from './screen-vision.ts'
 import { readScheduleConfig } from './work-schedule.ts'
+import { startWorkLogService } from './worklog-service.ts'
 import { startScheduleService } from './schedule-service.ts'
 import { startReportService, type ReportKind } from './report-service.ts'
 import { buildWeeklyReportPrompt, readWorkLogDays, weekDateKeys } from './weekly-report.ts'
@@ -939,6 +940,13 @@ async function main(): Promise<void> {
     accessibilityTrusted: () => systemPreferences.isTrustedAccessibilityClient(false),
   })
   // The working-hours window; it follows the ball, which is created just below.
+  const workLogService = startWorkLogService({
+    profileDir: paths.profile,
+    settings: () => activityRecorder.settings(),
+    shellOrigin: `${SCHEME}://shell`,
+    preload: shellPreload,
+    ballBounds: () => (floatingShell?.isDestroyed() === false ? floatingShell.getBounds() : undefined),
+  })
   const scheduleService = startScheduleService({
     profileDir: paths.profile,
     shellOrigin: `${SCHEME}://shell`,
@@ -962,7 +970,7 @@ async function main(): Promise<void> {
       const current = readMillifractionCoordinates(paths.profile).enabled
       void confirmMillifractionEnabled(!current, floatingShell)
     },
-  }, () => { scheduleService.open() })
+  }, () => { scheduleService.open() }, () => { workLogService.open() })
   floatingWindow.once('ready-to-show', () => { floatingWindow.showInactive() })
   // Stream the pointer position to the ball so its eyes follow the cursor across the whole screen.
   const cursorFeed = startCursorFeed(floatingWindow, DESKTOP_IPC.floatingCursor)
@@ -1038,6 +1046,7 @@ async function main(): Promise<void> {
     screenVision.stop()
     chatter.stop()
     scheduleService.stop()
+    workLogService.stop()
     reminderService.stop()
     reportService.stop()
     activityRecorder.stop()

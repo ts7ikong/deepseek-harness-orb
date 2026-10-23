@@ -96,6 +96,12 @@ const clock = {
   },
 }
 
+/** Used only by the work log window; the main process accepts it from that window alone. */
+const worklog = {
+  get: () => ipcRenderer.invoke(DESKTOP_IPC.worklogGet),
+  open: (what: 'log' | 'weekly') => ipcRenderer.invoke(DESKTOP_IPC.worklogOpen, what),
+}
+
 /** Used only by the working-hours settings window; the main process accepts it from that window alone. */
 const schedule = {
   get: () => ipcRenderer.invoke(DESKTOP_IPC.scheduleGet),
@@ -139,6 +145,7 @@ contextBridge.exposeInMainWorld('dshDesktop', {
   reminder,
   clock,
   schedule,
+  worklog,
   report,
   selection,
 })

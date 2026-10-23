@@ -58,6 +58,8 @@ export const DESKTOP_IPC = {
   clockState: 'dsh-desktop:clock-state',
   scheduleGet: 'dsh-desktop:schedule-get',
   scheduleSet: 'dsh-desktop:schedule-set',
+  worklogGet: 'dsh-desktop:worklog-get',
+  worklogOpen: 'dsh-desktop:worklog-open',
   reportPrompt: 'dsh-desktop:report-prompt',
   reportDraft: 'dsh-desktop:report-draft',
   reportInit: 'dsh-desktop:report-init',

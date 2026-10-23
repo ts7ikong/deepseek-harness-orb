@@ -174,3 +174,47 @@ export function countWorkLogEntries(file: string, dateKey: string): number {
     return 0
   }
 }
+
+/** One logged entry as the work-log viewer shows it. */
+export interface WorkLogViewEntry {
+  readonly time: string
+  readonly content: string
+}
+
+/** One day of the work log. */
+export interface WorkLogViewDay {
+  readonly date: string
+  readonly entries: readonly WorkLogViewEntry[]
+}
+
+/**
+ * The most recent days of the work log, with times.
+ * @param file - the work log path.
+ * @param days - how many days with entries to return.
+ * @returns the days, newest first; empty when the file is missing or damaged.
+ */
+export function readWorkLogRecent(file: string, days: number): WorkLogViewDay[] {
+  let raw: unknown
+  try {
+    raw = JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    // A missing or damaged log has nothing to show.
+    return []
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return []
+  const picked: WorkLogViewDay[] = []
+  for (const date of Object.keys(raw).filter(key => /^\d{4}-\d{2}-\d{2}$/u.test(key)).sort().reverse()) {
+    const list = (raw as Record<string, unknown>)[date]
+    if (!Array.isArray(list)) continue
+    const entries = list.flatMap((item): WorkLogViewEntry[] => {
+      if (typeof item !== 'object' || item === null) return []
+      const { time, content } = item as { time?: unknown; content?: unknown }
+      return typeof content === 'string' && content.trim() !== ''
+        ? [{ time: typeof time === 'string' ? time : '', content: content.trim() }]
+        : []
+    })
+    if (entries.length > 0) picked.push({ date, entries })
+    if (picked.length >= days) break
+  }
+  return picked
+}
