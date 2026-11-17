@@ -1,6 +1,7 @@
 /** The reminder pop-up: a transparent always-on-top window that flies from the ball to the screen center. */
 
 import { BrowserWindow, screen } from 'electron'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 import type { ReminderEntry } from './reminders.ts'
 
@@ -174,8 +175,7 @@ export function showReminder(
     },
   })
   presentOverlayWindow(window)
-  // Keep the pop-up out of the screenshots Computer Use takes.
-  if (process.platform === 'win32') window.setContentProtection(true)
+  excludeFromComputerUseCapture(window)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   const closed = new Promise<void>((resolve) => {
     const dismissTimer = setTimeout(() => {

@@ -1,6 +1,7 @@
 /** The speech bubble beside the ball where a proactive line appears; a click anywhere on it dismisses it. */
 
 import { BrowserWindow, screen } from 'electron'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 
 /** Window size in DIPs. */
@@ -80,7 +81,7 @@ export function showBubble(text: string, options: {
     },
   })
   presentOverlayWindow(window)
-  if (process.platform === 'win32') window.setContentProtection(true)
+  excludeFromComputerUseCapture(window)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   const timer = setTimeout(() => { if (!window.isDestroyed()) window.close() }, BUBBLE_DISMISS_MS)
   window.once('closed', () => { clearTimeout(timer) })

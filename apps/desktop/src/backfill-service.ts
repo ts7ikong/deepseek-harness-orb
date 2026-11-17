@@ -5,6 +5,7 @@
 
 import { BrowserWindow, ipcMain, screen } from 'electron'
 import { readActivityDay, summarizeDay, type ActivityConfig } from './activity-log.ts'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 import { DESKTOP_IPC } from './ipc.ts'
 import { localDateKey } from './reminders.ts'
@@ -160,7 +161,7 @@ export function startBackfillService(options: {
         },
       })
       presentOverlayWindow(created)
-      if (process.platform === 'win32') created.setContentProtection(true)
+      excludeFromComputerUseCapture(created)
       created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       created.once('ready-to-show', () => {
         created.show()

@@ -1,6 +1,7 @@
 /** The window where the user edits and confirms a daily report draft before it is written to the work log. */
 
 import { BrowserWindow, screen } from 'electron'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 
 /** Window size in DIPs. */
@@ -65,8 +66,7 @@ export function showReportWindow(options: {
     },
   })
   presentOverlayWindow(window)
-  // Keep the window out of the screenshots Computer Use takes.
-  if (process.platform === 'win32') window.setContentProtection(true)
+  excludeFromComputerUseCapture(window)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.once('ready-to-show', () => {
     window.show()

@@ -1,6 +1,7 @@
 /** The small window where the user sets their working hours, opened from the ball's right-click menu. */
 
 import { BrowserWindow, ipcMain, screen } from 'electron'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 import { DESKTOP_IPC } from './ipc.ts'
 import { readScheduleForm, saveScheduleForm, type ScheduleForm, type ScheduleSaveResult } from './work-schedule.ts'
@@ -87,7 +88,7 @@ export function startScheduleService(options: {
         },
       })
       presentOverlayWindow(created)
-      if (process.platform === 'win32') created.setContentProtection(true)
+      excludeFromComputerUseCapture(created)
       created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       created.once('ready-to-show', () => {
         created.show()

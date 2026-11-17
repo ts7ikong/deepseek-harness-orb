@@ -32,6 +32,7 @@ import { summarizeDay } from './activity-log.ts'
 import { startActivityRecorder } from './activity-recorder.ts'
 import { buildDailyReportPrompt } from './daily-report.ts'
 import { showBubble } from './bubble-window.ts'
+import { resetComputerUseCapture, setComputerUseCapture } from './capture-exclusion.ts'
 import { startChatter } from './chatter.ts'
 import { COLLAPSED_BALL_MAX, startClockService } from './clock-service.ts'
 import { startCursorFeed } from './cursor-feed.ts'
@@ -929,12 +930,15 @@ async function main(): Promise<void> {
     openExternal: url => shell.openExternal(url),
     promptOverlay(text) {
       if (floatingShell === undefined || floatingShell.isDestroyed()) return
+      // The island hides the ball, whose conversation answers the selection, so the island turns back into the ball.
+      if (islandService.active()) islandService.exit()
       floatingShell.showInactive()
       floatingShell.webContents.send(DESKTOP_IPC.selectionPrompt, { text })
       hideSelectionToolbar(selectionController?.window())
     },
     attachOverlay(text) {
       if (floatingShell === undefined || floatingShell.isDestroyed()) return
+      if (islandService.active()) islandService.exit()
       floatingShell.show()
       floatingShell.focus()
       floatingShell.webContents.send(DESKTOP_IPC.selectionAttach, { text })
@@ -1136,11 +1140,13 @@ async function main(): Promise<void> {
     if (floatingShell !== undefined && !floatingShell.isDestroyed()) resetFloatingOverlayGuard(floatingShell)
     const toolbarWindow = selectionController.window()
     if (toolbarWindow !== undefined && !toolbarWindow.isDestroyed()) resetFloatingOverlayGuard(toolbarWindow)
+    resetComputerUseCapture()
     selectionController.setHidInput(false)
   }
   orbHostHandlers.onOverlayGuard = (event) => {
     if (floatingShell === undefined || floatingShell.isDestroyed()) return []
     applyFloatingOverlayGuard(floatingShell, event.mode, event.action)
+    setComputerUseCapture(event.action)
     const toolbarWindow = selectionController.window()
     if (toolbarWindow !== undefined && !toolbarWindow.isDestroyed()) {
       applyFloatingOverlayGuard(toolbarWindow, event.mode, event.action)

@@ -46,4 +46,17 @@ describe('floating orb main wiring', () => {
     expect(main).toContain('selectionController.start()')
     expect(main).toContain('ORB_AVATAR_PATH')
   })
+
+  it('turns the island back into the ball before the selection toolbar shows it', () => {
+    for (const handler of ['promptOverlay(text) {', 'attachOverlay(text) {']) {
+      const body = main.slice(main.indexOf(handler), main.indexOf('hideSelectionToolbar', main.indexOf(handler)))
+      expect(body.indexOf('islandService.exit()')).toBeGreaterThan(-1)
+      expect(body.indexOf('islandService.exit()')).toBeLessThan(body.indexOf('floatingShell.show'))
+    }
+  })
+
+  it('hides the assistant windows from screenshots only during Computer Use guard intervals', () => {
+    expect(main).toContain('setComputerUseCapture(event.action)')
+    expect(main).toContain('resetComputerUseCapture()')
+  })
 })

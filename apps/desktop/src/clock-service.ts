@@ -9,6 +9,7 @@ import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, ipcMain, screen } from 'electron'
 import { DESKTOP_IPC } from './ipc.ts'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 import { clockState, readScheduleConfig, SCHEDULE_CONFIG_FILE, type ScheduleConfig, type WorkProgress } from './work-schedule.ts'
 
@@ -185,8 +186,7 @@ export function startClockService(options: {
       },
     })
     presentOverlayWindow(created)
-    // Keep the menu out of the screenshots Computer Use takes.
-    if (process.platform === 'win32') created.setContentProtection(true)
+    excludeFromComputerUseCapture(created)
     created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     created.webContents.once('did-finish-load', () => { loaded = true })
     void created.loadURL(new URL('menu.html', `${options.shellOrigin}/`).toString())

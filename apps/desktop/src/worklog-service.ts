@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, ipcMain, screen, shell } from 'electron'
 import type { ActivityConfig } from './activity-log.ts'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 import { DESKTOP_IPC } from './ipc.ts'
 import { WEEKLY_REPORTS_DIR } from './report-service.ts'
@@ -110,7 +111,7 @@ export function startWorkLogService(options: {
         },
       })
       presentOverlayWindow(created)
-      if (process.platform === 'win32') created.setContentProtection(true)
+      excludeFromComputerUseCapture(created)
       created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       created.once('ready-to-show', () => {
         created.show()

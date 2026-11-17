@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, ipcMain, screen } from 'electron'
 import { pointInRect } from './clock-service.ts'
+import { excludeFromComputerUseCapture } from './capture-exclusion.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 import { DESKTOP_IPC } from './ipc.ts'
 import { localDateKey, type ReminderEntry, type ReminderMood, type UpcomingReminder } from './reminders.ts'
@@ -393,8 +394,7 @@ export function startIslandService(options: {
     presentOverlayWindow(created)
     created.setIgnoreMouseEvents(true, { forward: true })
     ignoring = true
-    // Keep the island out of the screenshots Computer Use takes.
-    if (process.platform === 'win32') created.setContentProtection(true)
+    excludeFromComputerUseCapture(created)
     created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     created.webContents.once('did-finish-load', () => {
       loaded = true
