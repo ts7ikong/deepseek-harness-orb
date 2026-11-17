@@ -25,7 +25,7 @@ export const ISLAND_STATE_FILE = 'orb-island.json'
 /** Island window size in DIPs; the capsule is drawn inside it at the top centre. */
 export const ISLAND_WINDOW_SIZE = { width: 540, height: 340 } as const
 
-/** What the capsule looks like in each mode: its size in DIPs. */
+/** What the capsule looks like in each mode: its size in DIPs. The panel's height is its tallest; it fits its content. */
 export const ISLAND_PILL_SIZES = {
   collapsed: { width: 420, height: 46 },
   panel: { width: 520, height: 316 },
@@ -98,6 +98,8 @@ export type IslandAction =
   | { readonly type: 'todo-add'; readonly text: string }
   | { readonly type: 'todo-toggle'; readonly id: string }
   | { readonly type: 'todo-remove'; readonly id: string }
+  /** The page measured its panel: the capsule height in DIPs that holds the content. */
+  | { readonly type: 'panel-height'; readonly height: number }
 
 /**
  * Where the island window sits: centered along the top of a display.
@@ -116,11 +118,22 @@ export function islandWindowBounds(workArea: Rect): Rect {
  * The capsule's rectangle in screen coordinates.
  * @param window - the island window bounds.
  * @param mode - which size the capsule has.
+ * @param panelHeight - the panel's fitted height (see {@link islandPanelHeight}); the tallest when not measured yet.
  * @returns the rectangle the pointer must be in to count as being on the capsule.
  */
-export function islandPillRect(window: Rect, mode: IslandMode): Rect {
-  const { width, height } = ISLAND_PILL_SIZES[mode]
+export function islandPillRect(window: Rect, mode: IslandMode, panelHeight: number = ISLAND_PILL_SIZES.panel.height): Rect {
+  const { width } = ISLAND_PILL_SIZES[mode]
+  const height = mode === 'panel' ? panelHeight : ISLAND_PILL_SIZES[mode].height
   return { x: window.x + Math.round((window.width - width) / 2), y: window.y + ISLAND_TOP_MARGIN, width, height }
+}
+
+/**
+ * The panel height to use for a height the page measured.
+ * @param measured - the capsule height in DIPs that holds the panel's content.
+ * @returns that height rounded up, no lower than the collapsed capsule and no higher than the tallest panel.
+ */
+export function islandPanelHeight(measured: number): number {
+  return Math.min(ISLAND_PILL_SIZES.panel.height, Math.max(ISLAND_PILL_SIZES.collapsed.height, Math.ceil(measured)))
 }
 
 /**
@@ -170,6 +183,8 @@ export function parseIslandAction(value: unknown): IslandAction | undefined {
     case 'todo-toggle':
     case 'todo-remove':
       return typeof message.id === 'string' ? { type: message.type, id: message.id } : undefined
+    case 'panel-height':
+      return typeof message.height === 'number' && Number.isFinite(message.height) ? { type: 'panel-height', height: message.height } : undefined
     default:
       return undefined
   }
@@ -270,6 +285,7 @@ export function startIslandService(options: {
   let active = false
   let workArea: Rect | undefined
   let mode: IslandMode = 'collapsed'
+  let panelHeight: number = ISLAND_PILL_SIZES.panel.height
   let hoveredAt = -Infinity
   let ignoring = true
   let running = false
@@ -321,7 +337,7 @@ export function startIslandService(options: {
 
   function check(): void {
     if (!active || window === undefined || window.isDestroyed()) return
-    const rect = islandPillRect(window.getBounds(), mode)
+    const rect = islandPillRect(window.getBounds(), mode, panelHeight)
     const inside = pointInRect(rect, pointer())
     applyMouse(inside)
     const moment = Date.now()
@@ -363,6 +379,9 @@ export function startIslandService(options: {
       case 'todo-remove':
         removeTodo(options.profileDir, action.id)
         break
+      case 'panel-height':
+        panelHeight = islandPanelHeight(action.height)
+        return
     }
     push()
   })

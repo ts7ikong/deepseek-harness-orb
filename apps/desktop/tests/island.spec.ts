@@ -67,6 +67,7 @@ import {
   ISLAND_PILL_SIZES,
   ISLAND_STATE_FILE,
   ISLAND_WINDOW_SIZE,
+  islandPanelHeight,
   islandPillRect,
   islandWindowBounds,
   nextIslandMode,
@@ -108,6 +109,16 @@ describe('geometry and modes', () => {
     expect(ISLAND_PILL_SIZES.panel.height + 6).toBeLessThanOrEqual(ISLAND_WINDOW_SIZE.height)
   })
 
+  it('fits the panel to a measured height within the collapsed and tallest capsule', () => {
+    const window = islandWindowBounds(area)
+    expect(islandPanelHeight(212.2)).toBe(213)
+    expect(islandPanelHeight(10)).toBe(ISLAND_PILL_SIZES.collapsed.height)
+    expect(islandPanelHeight(900)).toBe(ISLAND_PILL_SIZES.panel.height)
+    expect(islandPillRect(window, 'panel').height).toBe(ISLAND_PILL_SIZES.panel.height)
+    expect(islandPillRect(window, 'panel', 213).height).toBe(213)
+    expect(islandPillRect(window, 'collapsed', 213).height).toBe(ISLAND_PILL_SIZES.collapsed.height)
+  })
+
   it('turns a ball dropped against the top edge into the island, and no other', () => {
     expect(shouldEnterIsland({ x: 500, y: -12, width: 96, height: 96 }, area)).toBe(true)
     expect(shouldEnterIsland({ x: 500, y: ISLAND_ENTER_EDGE - 12, width: 96, height: 96 }, area)).toBe(true)
@@ -135,6 +146,9 @@ describe('geometry and modes', () => {
     expect(parseIslandAction({ type: 'todo-add', text: 5 })).toBeUndefined()
     expect(parseIslandAction({ type: 'todo-toggle', id: 'a' })).toEqual({ type: 'todo-toggle', id: 'a' })
     expect(parseIslandAction({ type: 'todo-remove' })).toBeUndefined()
+    expect(parseIslandAction({ type: 'panel-height', height: 212.5 })).toEqual({ type: 'panel-height', height: 212.5 })
+    expect(parseIslandAction({ type: 'panel-height', height: '212' })).toBeUndefined()
+    expect(parseIslandAction({ type: 'panel-height', height: Number.NaN })).toBeUndefined()
     expect(parseIslandAction({ type: 'other' })).toBeUndefined()
     expect(parseIslandAction(null)).toBeUndefined()
     expect(parseIslandAction('exit')).toBeUndefined()
@@ -229,6 +243,21 @@ describe('the island service', () => {
     vi.advanceTimersByTime(900)
     expect(last().mode).toBe('collapsed')
     expect(win().ignoring).toBe(true)
+    island.stop()
+  })
+
+  it('lets the pointer leave a fitted panel through the space below it', () => {
+    const { island, win, last, move, act } = start()
+    island.enter()
+    const pill = islandPillRect(win().bounds, 'collapsed')
+    move(pill.x + 60, pill.y + 20)
+    vi.advanceTimersByTime(300)
+    act({ type: 'panel-height', height: 200 })
+    move(pill.x + 60, pill.y + 250)
+    vi.advanceTimersByTime(300)
+    expect(win().ignoring).toBe(true)
+    vi.advanceTimersByTime(900)
+    expect(last().mode).toBe('collapsed')
     island.stop()
   })
 
@@ -471,6 +500,27 @@ describe('the island page', () => {
     push(base)
     expect(text('#reminder-title')?.hidden).toBe(true)
     expect(document.querySelector('#island')?.getAttribute('data-mode')).toBe('collapsed')
+  })
+
+  it('sizes the open capsule to the panel content and reports that height once per change', () => {
+    const { dom, text, act, push } = mount()
+    const panel = text('#panel')!
+    const pill = text('#pill')!
+    let content = 160
+    Object.defineProperty(panel, 'offsetHeight', { get: () => content })
+    Object.defineProperty(panel, 'offsetTop', { value: 46 })
+    Object.defineProperty(pill, 'offsetHeight', { value: 48 })
+    Object.defineProperty(pill, 'clientHeight', { value: 46 })
+    push({ ...base, mode: 'panel' })
+    expect(text('#island')?.style.getPropertyValue('--panel-height')).toBe('208px')
+    expect(act).toHaveBeenLastCalledWith({ type: 'panel-height', height: 208 })
+    const calls = act.mock.calls.length
+    push({ ...base, mode: 'panel' })
+    expect(act.mock.calls.length).toBe(calls)
+    content = 200.4
+    push({ ...base, mode: 'panel' })
+    expect(act).toHaveBeenLastCalledWith({ type: 'panel-height', height: 249 })
+    dom.window.close()
   })
 
   it('ignores malformed state', () => {

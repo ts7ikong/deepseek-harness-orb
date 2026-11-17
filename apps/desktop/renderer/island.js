@@ -101,6 +101,21 @@ function renderTodos(todos) {
   }
 }
 
+// The open panel is as tall as its content: the capsule's border, the bar, and the panel. The main process uses the
+// same height to tell whether the pointer is on the capsule.
+let panelHeight = 0
+
+function fitPanel() {
+  const panel = el('panel')
+  if (panel.offsetHeight === 0) return
+  const pill = el('pill')
+  const height = Math.ceil(panel.offsetTop + panel.offsetHeight + pill.offsetHeight - pill.clientHeight)
+  if (height === panelHeight) return
+  panelHeight = height
+  island.style.setProperty('--panel-height', `${height}px`)
+  act({ type: 'panel-height', height })
+}
+
 function render(state) {
   if (typeof state?.time !== 'string' || typeof state?.mode !== 'string') return
   island.dataset.mode = state.mode
@@ -144,6 +159,7 @@ function render(state) {
   renderEntries(state.entries ?? [])
   renderTodos(state.todos ?? [])
   el('next').innerHTML = nextText(state.next)
+  fitPanel()
 }
 
 el('face-button').addEventListener('click', () => { act({ type: 'exit' }) })
@@ -162,4 +178,5 @@ el('todo-form').addEventListener('submit', (event) => {
   act({ type: 'todo-add', text })
 })
 
+if (typeof ResizeObserver === 'function') new ResizeObserver(fitPanel).observe(el('panel'))
 api?.onState(render)

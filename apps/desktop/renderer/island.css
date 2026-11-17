@@ -50,9 +50,10 @@ body {
   animation: island-drop 420ms cubic-bezier(0.2, 1.3, 0.4, 1) both;
 }
 
+/* The page sets --panel-height to fit the panel's content; 316px is the tallest the window holds. */
 #island[data-mode="panel"] #pill {
   width: 520px;
-  height: 316px;
+  height: min(var(--panel-height, 316px), 316px);
   border-radius: 26px;
 }
 
@@ -214,11 +215,24 @@ body {
   transition-delay: 140ms;
 }
 
+/*
+ * Laid out at the open panel's inner width in every mode, so its measured height does not depend on the capsule's.
+ * It is no taller than the tallest capsule below the bar and its borders; past that the two lists scroll and the
+ * reminder line and the shortcuts stay in view.
+ */
 #panel {
   position: absolute;
   top: 46px;
   left: 0;
-  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: 518px;
+  max-height: calc(316px - 48px);
+}
+
+#next,
+#actions {
+  flex: none;
 }
 
 #reminder {
@@ -229,9 +243,27 @@ body {
 }
 
 .columns {
-  display: grid;
-  grid-template-columns: 1.25fr 1fr;
+  display: flex;
   gap: 16px;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.column:first-child {
+  flex-grow: 1.25;
+}
+
+.column > h2,
+.column > p,
+#todo-form {
+  flex: none;
 }
 
 h2 {
@@ -249,6 +281,7 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
   max-height: 170px;
   overflow-y: auto;
 }
