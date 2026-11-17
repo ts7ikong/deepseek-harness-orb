@@ -396,10 +396,12 @@ async function main() {
   api.floating.onCursor?.(point => { face?.lookAtScreen(point.x, point.y) })
   api.floating.onActing?.(next => { acting = next === true })
   api.floating.onSpeak?.(() => { face?.pulse('hello', 3500) })
+  api.floating.onWorkProgress?.(progress => { globalThis.setWorkRing?.(progress) })
 
   function pageClosed() {
     return globalThis.document?.body == null
   }
+
 
   function freezeGif(gif) {
     const still = () => {
@@ -1257,8 +1259,7 @@ async function main() {
       if (dockHoverArmed) void unsnapDocked()
       return
     }
-    if (suppressExpand) return
-    void setExpanded(true)
+    // Hovering no longer opens the conversation: the ball's menu unfolds instead (see clock-service.ts), and a click opens the panel.
   })
   document.body.addEventListener('pointerleave', () => {
     dockPointerInside = false
@@ -1357,6 +1358,7 @@ async function main() {
     pinned = !pinned
     document.body.classList.toggle('pinned', pinned)
     if (pinned) await setExpanded(true)
+    else scheduleCollapse()
   })
   ball.addEventListener('pointercancel', event => {
     void finishPointer(event)

@@ -82,6 +82,10 @@ function shortTitle(title: string): string {
   return cleaned.length > MAX_TITLE_CHARS ? `${cleaned.slice(0, MAX_TITLE_CHARS - 1)}…` : cleaned
 }
 
+function isSameDay(first: Date, second: Date): boolean {
+  return first.getFullYear() === second.getFullYear() && first.getMonth() === second.getMonth() && first.getDate() === second.getDate()
+}
+
 const REPLY_IN_TEXT = '直接用文字回复，不要操作电脑，不要打开任何程序或文件。'
 
 function exampleLines(examples: readonly WorkLogDay[]): string[] {
@@ -102,10 +106,11 @@ export function buildDailyReportPrompt(
   examples: readonly WorkLogDay[] = [],
   notes: readonly ScreenNote[] = [],
 ): string {
+  const day = isSameDay(date, new Date()) ? '今天' : '当天'
   const dateLine = `${String(date.getFullYear())}年${String(date.getMonth() + 1)}月${String(date.getDate())}日 周${WEEKDAYS[date.getDay()] ?? ''}`
   if (summary.activeMs < MIN_REPORT_ACTIVE_MS) {
     return [
-      `今天（${dateLine}）本机记录到的电脑使用时间只有 ${formatDuration(summary.activeMs)}，记录功能可能刚启动，`
+      `${day}（${dateLine}）本机记录到的电脑使用时间只有 ${formatDuration(summary.activeMs)}，记录功能可能刚启动，`
       + '没有足够的内容可以整理。',
       '请先给我一份日报模板（今日工作、遇到的问题、明日计划），每一项留空，由我自己补充。',
       REPLY_IN_TEXT,
@@ -127,8 +132,9 @@ export function buildDailyReportPrompt(
     ? ''
     : `活跃时段：${clock(summary.firstAt)} – ${clock(summary.lastAt)}，`
   const preface = [
-    '我今天在电脑上的使用记录如下。它由本机自动记录，只有程序名、窗口标题和时长，不含具体内容，空闲时间已排除。',
-    '请据此帮我整理一份今天的工作日报草稿。',
+    `我${day}在电脑上的使用记录如下。`
+      + '它由本机自动记录，只有程序名、窗口标题和时长，不含具体内容，空闲时间已排除。',
+    `请据此帮我整理一份${day}的工作日报草稿。`,
     '',
     '要求：',
   ]

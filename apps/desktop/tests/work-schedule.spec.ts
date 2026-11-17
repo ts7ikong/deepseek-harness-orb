@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('electron', () => ({ BrowserWindow: vi.fn(), screen: {} }))
 vi.mock('../src/floating-window.ts', () => ({ presentOverlayWindow: () => {} }))
 
-import { clockBounds, CLOCK_WINDOW_SIZE } from '../src/clock-service.ts'
 import {
   clockState,
   defaultScheduleText,
@@ -109,26 +108,6 @@ describe('clockState', () => {
   it('leaves out progress when the hours are not set', () => {
     expect('progress' in clockState({ ...hours, workStart: undefined }, tuesday(10))).toBe(false)
     expect(clockState(hours, tuesday(10)).progress?.phase).toBe('morning')
-  })
-})
-
-describe('clockBounds', () => {
-  const area = { x: 0, y: 0, width: 1920, height: 1040 }
-  const { width, height } = CLOCK_WINDOW_SIZE
-
-  it('sits centered just under the ball', () => {
-    expect(clockBounds({ x: 800, y: 400, width: 96, height: 96 }, area))
-      .toEqual({ x: 800 + 48 - width / 2, y: 400 + 96 - 12, width, height })
-  })
-
-  it('goes above the ball when there is no room below', () => {
-    const bounds = clockBounds({ x: 800, y: 1000, width: 96, height: 96 }, area)
-    expect(bounds.y).toBe(1000 + 12 - height)
-  })
-
-  it('stays inside the display next to an edge', () => {
-    expect(clockBounds({ x: 1840, y: 400, width: 96, height: 96 }, area).x).toBe(1920 - width)
-    expect(clockBounds({ x: -20, y: 400, width: 96, height: 96 }, area).x).toBe(0)
   })
 })
 

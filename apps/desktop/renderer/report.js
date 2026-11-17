@@ -106,6 +106,12 @@ async function start() {
     document.title = '周报草稿'
     document.querySelector('#title').textContent = '周报草稿'
     intro.textContent = '每行一条，直接修改，“待补充”处补全后，点“复制并打开钉钉”，再到钉钉里粘贴发送。'
+  } else if (info.today === false) {
+    document.title = '补写日报'
+    document.querySelector('#title').textContent = '补写日报'
+    intro.textContent = info.existing > 0
+      ? `这是补写 ${info.date} 的日报，那天的工作日志已有 ${info.existing} 条，下面的内容会追加在后面。每行一条，可以直接修改。`
+      : `这是补写 ${info.date} 的日报，确认后会记入那一天的工作日志。每行一条，可以直接修改。`
   } else intro.textContent = info.existing > 0
     ? `今天的工作日志已有 ${info.existing} 条，下面的内容会追加在后面。每行一条，可以直接修改。`
     : '每行一条，直接在下面修改；改好后点“记入工作日志”。'

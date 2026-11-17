@@ -1,0 +1,193 @@
+/* The menu that unfolds beside the ball: the time, then a column of round shortcuts with labels that slide out. */
+:root {
+  --menu-bg: rgb(14 18 26 / 84%);
+  --menu-line: rgb(94 234 212 / 55%);
+  --menu-accent: #5eead4;
+  --menu-text: #eaf6f4;
+  --menu-dim: #8fa3a8;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif;
+  user-select: none;
+}
+
+#menu {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 10px 8px;
+}
+
+#menu[hidden] {
+  display: none;
+}
+
+#menu[data-side="left"] {
+  align-items: flex-end;
+}
+
+#info {
+  padding: 6px 12px 7px;
+  border: 1px solid var(--menu-line);
+  border-radius: 14px;
+  background: var(--menu-bg);
+  color: var(--menu-text);
+  box-shadow: 0 0 14px rgb(94 234 212 / 18%);
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+#menu[data-side="left"] #info {
+  transform: translateX(10px);
+  text-align: right;
+}
+
+#time {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--menu-accent);
+}
+
+#date,
+#left {
+  font-size: 11px;
+  color: var(--menu-dim);
+}
+
+#left:empty {
+  display: none;
+}
+
+#items {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+#menu[data-side="left"] #items {
+  align-items: flex-end;
+}
+
+/* The thin line the round buttons hang from. */
+#items::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 19px;
+  width: 1px;
+  background: linear-gradient(var(--menu-line), transparent);
+}
+
+#menu[data-side="left"] #items::before {
+  left: auto;
+  right: 19px;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--menu-text);
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(-14px) scale(0.7);
+}
+
+#menu[data-side="left"] .item {
+  flex-direction: row-reverse;
+  transform: translateX(14px) scale(0.7);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--menu-line);
+  border-radius: 50%;
+  background: var(--menu-bg);
+  box-shadow: 0 0 10px rgb(94 234 212 / 25%);
+  transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--menu-accent);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.label {
+  padding: 5px 12px;
+  border: 1px solid rgb(94 234 212 / 30%);
+  border-radius: 999px;
+  background: var(--menu-bg);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.item:hover .icon,
+.item:focus-visible .icon {
+  background: rgb(94 234 212 / 22%);
+  box-shadow: 0 0 16px rgb(94 234 212 / 55%);
+  transform: scale(1.08);
+}
+
+.item:hover .label {
+  border-color: var(--menu-accent);
+  color: var(--menu-accent);
+}
+
+.item:active .icon {
+  transform: scale(0.95);
+}
+
+/* Each time the menu is shown, the time card and the buttons unfold one after another. */
+#menu.open #info {
+  animation: menu-in 240ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+
+#menu.open .item {
+  animation: menu-in 260ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+  animation-delay: calc(80ms + var(--i) * 70ms);
+}
+
+@keyframes menu-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #menu.open #info,
+  #menu.open .item {
+    animation-duration: 1ms;
+    animation-delay: 0s;
+  }
+}

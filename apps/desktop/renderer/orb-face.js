@@ -91,7 +91,7 @@
       node('ellipse', { class: 'gloss', cx: 35, cy: 20, rx: 22, ry: 10, transform: 'rotate(-22 35 20)' }),
       node('circle', { class: 'rim', cx: 50, cy: 50, r: 48.4 }),
       node('g', { class: 'head' }, [
-        // Everything that glows lives in one layer so the halo filter does not touch the glasses.
+        // Everything that glows lives in one layer so the halo filter touches only the glowing parts.
         node('g', { class: 'glow-layer' }, [
           node('g', { class: 'eyes' }, [eye('l', 31), eye('r', 69)]),
           node('g', { class: 'dots' }, [
@@ -113,11 +113,8 @@
             ]),
           ]),
         ]),
-        node('g', { class: 'glasses' }, [
-          node('rect', { class: 'lens', x: 12, y: 28, width: 36, height: 38, rx: 8 }),
-          node('rect', { class: 'lens', x: 52, y: 28, width: 36, height: 38, rx: 8 }),
-          node('path', { class: 'bridge', d: 'M48,43 Q50,40 52,43' }),
-        ]),
+        // Small glowing symbols beside the eyes: a question mark when the ball is curious, an exclamation when surprised.
+        node('g', { class: 'marks' }, [text('?', 74, 30, 14), text('!', 74, 30, 14)]),
       ]),
     )
     return svg

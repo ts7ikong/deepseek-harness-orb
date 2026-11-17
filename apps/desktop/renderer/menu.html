@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>悬浮球菜单</title>
+    <link rel="stylesheet" href="menu.css">
+  </head>
+  <body>
+    <main id="menu" data-side="right" hidden>
+      <section id="info">
+        <div id="time"></div>
+        <div id="date"></div>
+        <div id="left"></div>
+      </section>
+      <nav id="items" aria-label="快捷操作">
+        <button class="item" type="button" data-action="backfill" style="--i: 0">
+          <span class="icon"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4 M9 13h6 M9 17h4"/></svg></span>
+          <span class="label">补写日报</span>
+        </button>
+        <button class="item" type="button" data-action="weekly" style="--i: 1">
+          <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4 M8 14h2 M12 14h2 M8 17h2"/></svg></span>
+          <span class="label">生成本周周报</span>
+        </button>
+        <button class="item" type="button" data-action="worklog" style="--i: 2">
+          <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 6h.01 M4 12h.01 M4 18h.01 M8 6h12 M8 12h12 M8 18h12"/></svg></span>
+          <span class="label">查看工作记录</span>
+        </button>
+        <button class="item" type="button" data-action="hours" style="--i: 3">
+          <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <span class="label">工作时间设置</span>
+        </button>
+      </nav>
+    </main>
+    <script src="menu.js"></script>
+  </body>
+</html>

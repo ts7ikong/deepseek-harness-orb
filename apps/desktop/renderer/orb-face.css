@@ -2,7 +2,7 @@
  * Floating-ball face: a black orb whose expressions are glowing neon lines.
  * `--glow` is the halo color and `--line` the brighter tube color; each mood sets both and they fade
  * between moods. Expressions are `data-mood` rules on `.orb-face`. The face has no mouth or blush:
- * moods read from the eyes, glasses, and extras (dots, zzz, stars, pencil) alone.
+ * moods read from the eyes, marks, and extras (dots, zzz, stars, pencil) alone.
  */
 @property --glow {
   syntax: "<color>";
@@ -21,7 +21,6 @@
   --face-body-mid: #14161b;
   --face-body-dark: #07080a;
   /* Glasses frame: a fixed light gray, different from every mood's eye color. */
-  --face-glasses: #d7dbe3;
 }
 
 body.face-mode #ball {
@@ -131,7 +130,7 @@ body.face-photo #ball {
   animation: orb-breathe 3.6s ease-in-out infinite;
 }
 
-/* The halo applies to the glowing parts only; the glasses are plain, unlit frames. */
+/* The halo applies to the glowing parts only. */
 .orb-face .glow-layer {
   filter: drop-shadow(0 0 1.2px var(--glow)) drop-shadow(0 0 3.4px var(--glow));
 }
@@ -223,20 +222,14 @@ body.face-photo #ball {
   animation: orb-spin 0.7s linear infinite;
 }
 
-/* Glasses: shown by the moods that used to raise or lower brows (thinking, curious, surprised, error) */
-.orb-face .glasses {
-  fill: none;
-  stroke: var(--face-glasses);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+/* Marks: a small glowing symbol up beside the eyes for the curious and surprised moods. */
+.orb-face .marks text {
+  fill: var(--line);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  text-anchor: middle;
   opacity: 0;
-  transform-origin: 50px 46px;
-  transition: opacity 150ms, transform 150ms;
-}
-
-.orb-face .lens {
-  fill: rgb(255 255 255 / 5%);
+  transition: opacity 150ms;
 }
 
 .orb-face .dots circle,
@@ -265,7 +258,6 @@ body.face-photo #ball {
 
 /* thinking: the model is working it out; eyes drift up and to the side, dots bounce */
 .orb-face[data-mood="thinking"] { --glow: #8b7bff; --line: #e6e1ff; --lx: 4px; --ly: -3px; }
-.orb-face[data-mood="thinking"] .glasses { opacity: 1; }
 .orb-face[data-mood="thinking"] .head { animation: orb-tilt 2.2s ease-in-out infinite alternate; }
 .orb-face[data-mood="thinking"] .dots circle { animation: orb-dot 1.2s ease-in-out infinite; }
 .orb-face[data-mood="thinking"] .dots circle:nth-child(2) { animation-delay: 0.2s; }
@@ -289,12 +281,11 @@ body.face-photo #ball {
 
 /* curious: the agent is asking something or needs a permission */
 .orb-face[data-mood="curious"] { --glow: #ffb020; --line: #fff0cf; --lx: 3px; --ly: -2px; --eye-s: 1.08; }
-.orb-face[data-mood="curious"] .glasses { opacity: 1; }
+.orb-face[data-mood="curious"] .marks text:nth-child(1) { opacity: 1; }
 .orb-face[data-mood="curious"] .head { animation: orb-tilt 2.4s ease-in-out infinite alternate; }
 
 /* error: disconnected or failed */
 .orb-face[data-mood="error"] { --glow: #ff4d5e; --line: #ffd6da; --eye-s: 0.92; }
-.orb-face[data-mood="error"] .glasses { opacity: 1; transform: rotate(-7deg); }
 .orb-face[data-mood="error"] .head { animation: none; transform: translateY(2px); }
 
 /* sleepy: nobody around for a while; the glow dims */
@@ -307,7 +298,7 @@ body.face-photo #ball {
 
 /* surprised: the pointer just arrived */
 .orb-face[data-mood="surprised"] { --eye-s: 1.22; }
-.orb-face[data-mood="surprised"] .glasses { opacity: 1; transform: translateY(-3px); }
+.orb-face[data-mood="surprised"] .marks text:nth-child(2) { opacity: 1; }
 
 /* shy: poked */
 .orb-face[data-mood="shy"] { --glow: #ff6fa8; --line: #ffd9ea; }

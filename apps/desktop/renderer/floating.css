@@ -892,3 +892,85 @@ body:not(.running) #stop {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Work progress: a thin ring just outside the collapsed ball (drawn in the window's margin). */
+#work-ring {
+  display: none;
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: calc(var(--ball) + 16px);
+  height: calc(var(--ball) + 16px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+body.has-work:not(.expanded) #work-ring {
+  display: block;
+}
+
+#work-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+#work-ring .ring-track {
+  stroke: rgb(255 255 255 / 14%);
+}
+
+#work-ring .ring-fill {
+  stroke: #5eead4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px #5eead4);
+  transition: stroke-dasharray 600ms ease;
+}
+
+body[data-work-phase="lunch"] #work-ring .ring-fill {
+  opacity: 0.45;
+}
+
+body[data-work-phase="after"] #work-ring .ring-fill {
+  stroke: #19e6a0;
+  filter: drop-shadow(0 0 3px #19e6a0);
+}
+
+/* The percent under the eyes, in seven-segment digits like a digital clock. */
+#work-percent {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  height: 11px;
+  /* A little right of centre: the eyes are drawn slightly left of the ball's middle. */
+  transform: translateX(calc(-50% + 3px));
+  overflow: visible;
+  pointer-events: none;
+}
+
+body.has-work:not(.expanded) #work-percent {
+  display: block;
+}
+
+#work-percent path,
+#work-percent circle {
+  fill: none;
+  stroke: #5eead4;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 1.5px #5eead4);
+}
+
+body[data-work-phase="lunch"] #work-percent {
+  opacity: 0.5;
+}
+
+body[data-work-phase="after"] #work-percent path,
+body[data-work-phase="after"] #work-percent circle {
+  stroke: #19e6a0;
+  filter: drop-shadow(0 0 1.5px #19e6a0);
+}
+
+/* With the progress digits under the eyes, the face rides a little higher so the two do not crowd. */
+body.has-work:not(.expanded) #ball-face .orb-face {
+  translate: 0 -3px;
+}

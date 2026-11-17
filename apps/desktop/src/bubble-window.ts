@@ -1,7 +1,6 @@
 /** The speech bubble beside the ball where a proactive line appears; a click anywhere on it dismisses it. */
 
 import { BrowserWindow, screen } from 'electron'
-import { CLOCK_WINDOW_SIZE } from './clock-service.ts'
 import { presentOverlayWindow } from './floating-window.ts'
 
 /** Window size in DIPs. */
@@ -21,7 +20,7 @@ interface Rect {
 }
 
 /**
- * Where the bubble sits: centered above the ball, or below the clock when there is no room above.
+ * Where the bubble sits: centered above the ball, or below it when there is no room above.
  * @param ball - bounds of the ball window.
  * @param workArea - work area of the display holding the ball.
  * @returns the bubble window bounds, kept inside the work area horizontally.
@@ -31,7 +30,7 @@ export function bubbleBounds(ball: Rect, workArea: Rect): Rect {
   const centered = Math.round(ball.x + ball.width / 2 - width / 2)
   const x = Math.max(workArea.x, Math.min(centered, workArea.x + workArea.width - width))
   const above = ball.y + BALL_INSET - height
-  const y = above >= workArea.y ? above : ball.y + ball.height - BALL_INSET + CLOCK_WINDOW_SIZE.height
+  const y = above >= workArea.y ? above : ball.y + ball.height - BALL_INSET
   return { x, y, width, height }
 }
 

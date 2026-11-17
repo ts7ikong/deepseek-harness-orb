@@ -238,7 +238,7 @@ it('creates a Computer Use session on dsh_orb and sends from the overlay', async
     expect(document.querySelector('#new-conversation')?.getAttribute('aria-label')).toBe('New')
     expect(document.querySelector('.bubble.assistant')).toBeNull()
     expect(document.querySelector<HTMLButtonElement>('#stop')?.hidden).toBe(true)
-    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    clickBall(dom)
     await expect.poll(() => document.querySelector('#transcript iframe')?.getAttribute('src')).toBe(OVERLAY_CHAT_SRC)
     expect(document.querySelector('.bubble.assistant')).toBeNull()
     expect(document.querySelector('.bubble.user')).toBeNull()
@@ -299,6 +299,9 @@ it('creates a Computer Use session on dsh_orb and sends from the overlay', async
       Object.assign(event, { button: 0 })
       ball.dispatchEvent(event)
     }
+    // The earlier click on the ball opened the panel and pinned it; clicking again unpins, and once more pins.
+    pin()
+    await expect.poll(() => document.body.classList.contains('pinned')).toBe(false)
     pin()
     await expect.poll(() => document.body.classList.contains('pinned')).toBe(true)
     pin()
@@ -411,6 +414,15 @@ it('collapses then moves by the ball grab offset instead of the window origin', 
     dom.window.close()
   }
 })
+
+/** The panel opens on a click on the ball (it pins open); hovering only shows the ball's menu. */
+function clickBall(dom: { window: { document: Document; Event: typeof Event } }): void {
+  const ball = dom.window.document.querySelector('#ball')
+  if (ball === null) throw new Error('missing ball')
+  const event = new dom.window.Event('pointerup', { bubbles: true })
+  Object.assign(event, { button: 0 })
+  ball.dispatchEvent(event)
+}
 
 async function mountPointerOverlay(options?: { dark?: boolean; running?: boolean }) {
   const dom = new JSDOM(readFileSync(new URL('../renderer/floating.html', import.meta.url), 'utf8'), {
@@ -630,20 +642,38 @@ it('does not force-collapse or allow dock while the Computer Use session is runn
   }
 })
 
+it('does not open the conversation when the pointer only hovers over the ball; a click does', async () => {
+  const overlay = await mountPointerOverlay()
+  try {
+    const { document, dom, api } = overlay
+    const opened = () => api.floating.setExpanded.mock.calls.some(call => call[0] === true)
+    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    await new Promise(resolve => setTimeout(resolve, 400))
+    expect(opened()).toBe(false)
+    expect(document.body.classList.contains('expanded')).toBe(false)
+    clickBall(dom)
+    await expect.poll(opened).toBe(true)
+  } finally {
+    overlay.dom.window.close()
+  }
+})
+
 it('keeps the panel open while an unsent draft sits in the input, and folds once it is cleared', async () => {
   const overlay = await mountPointerOverlay()
   try {
     const { document, dom, api } = overlay
     const prompt = document.querySelector('#prompt')
     if (prompt === null) throw new Error('missing prompt')
-    const pointer = (type: 'pointerenter' | 'pointerleave') =>
+    const pointer = (type: 'pointerleave') =>
       document.body.dispatchEvent(new dom.window.Event(type, { bubbles: true }))
     const folded = () => api.floating.setExpanded.mock.calls.some(call => call[0] === false)
     // A fold is announced after the hover delay (180ms) plus the close animation (300ms).
     const settle = () => new Promise(resolve => setTimeout(resolve, 900))
-    pointer('pointerenter')
+    clickBall(dom)
     await expect.poll(() => api.floating.setExpanded.mock.calls.some(call => call[0] === true)).toBe(true)
     prompt.textContent = 'half-written message'
+    // A second click unpins the panel; the unsent draft still keeps it open.
+    clickBall(dom)
     pointer('pointerleave')
     await settle()
     expect(folded()).toBe(false)
@@ -1065,7 +1095,7 @@ it('lists orb Computer Use chats and reopens the selected session', async () => 
     const document = dom.window.document
     await expect.poll(() => setSessionId.mock.calls).toEqual([['session-orb']])
     expect(calls.some(call => call.method === 'session/page')).toBe(false)
-    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    clickBall(dom)
     await expect.poll(() => document.querySelector('#transcript iframe')?.getAttribute('src')).toBe(OVERLAY_CHAT_SRC)
     const history = document.querySelector<HTMLButtonElement>('#history')
     const transcript = document.querySelector<HTMLElement>('#transcript')
@@ -2182,7 +2212,7 @@ it('covers the overlay with the TCC gate on first expand and blocks send', async
     await expect.poll(() => setSessionId.mock.calls).toEqual([['session-orb']])
     const document = dom.window.document
     expect(document.querySelector<HTMLElement>('#tcc-gate')?.hidden).toBe(true)
-    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    clickBall(dom)
     await expect.poll(() => document.querySelector<HTMLElement>('#tcc-gate')?.hidden).toBe(false)
     expect(document.querySelector('#tcc-title')?.textContent).toBe('Desktop agent needs two Mac permissions')
     expect(document.querySelector('#tcc-app')?.textContent).toBe('In the list, turn on DeepSeek Orb.')
@@ -2276,7 +2306,7 @@ it('hides the TCC gate when both rights are already granted', async () => {
     runInContext(readFileSync(new URL('../renderer/floating.js', import.meta.url), 'utf8'), dom.getInternalVMContext())
     await expect.poll(() => setSessionId.mock.calls).toEqual([['session-orb']])
     const document = dom.window.document
-    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    clickBall(dom)
     await expect.poll(() => document.body.classList.contains('expanded')).toBe(true)
     expect(document.querySelector<HTMLElement>('#tcc-gate')?.hidden).toBe(true)
     expect(document.body.classList.contains('tcc-gating')).toBe(false)
@@ -2353,7 +2383,7 @@ it('creates the transcript iframe only after the Host is ready', async () => {
     runInContext(readFileSync(new URL('../renderer/floating.js', import.meta.url), 'utf8'), dom.getInternalVMContext())
     const document = dom.window.document
     await expect.poll(() => document.querySelector('#status')?.textContent).toBe('Waiting for Desktop Host…')
-    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    clickBall(dom)
     await expect.poll(() => document.body.classList.contains('expanded')).toBe(true)
     expect(document.querySelector('#transcript iframe')).toBeNull()
     expect(harness.sessionWrites()).toEqual([])
@@ -2387,7 +2417,7 @@ it('rebuilds the transcript iframe when the Host becomes ready again', async () 
     runInContext(readFileSync(new URL('../renderer/floating.js', import.meta.url), 'utf8'), dom.getInternalVMContext())
     const document = dom.window.document
     await expect.poll(() => harness.sessionWrites()).toEqual([['session-orb']])
-    document.body.dispatchEvent(new dom.window.Event('pointerenter', { bubbles: true }))
+    clickBall(dom)
     await expect.poll(() => document.querySelector('#transcript iframe')?.getAttribute('src')).toBe(OVERLAY_CHAT_SRC)
     const first = document.querySelector<HTMLIFrameElement>('#transcript iframe')
     if (first === null) throw new Error('missing overlay chat iframe')

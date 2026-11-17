@@ -141,15 +141,15 @@ export type ConfirmResult =
  * Refuses an empty report, and one that still has {@link PENDING_MARK} entries, since those are guesses the user has not settled.
  * @param text - the edited report text.
  * @param file - the work log path.
- * @param now - the current local time.
+ * @param now - the current local time, which gives the time of day recorded with each entry.
+ * @param dateKey - the day the entries belong to (`YYYY-MM-DD`); today when omitted.
  * @returns what happened.
  */
-export function confirmReportText(text: string, file: string, now: Date): ConfirmResult {
+export function confirmReportText(text: string, file: string, now: Date, dateKey: string = localDateKey(now)): ConfirmResult {
   const lines = parseConfirmedLines(text)
   if (lines.length === 0) return { ok: false, reason: 'empty' }
   const pending = countPending(lines)
   if (pending > 0) return { ok: false, reason: 'pending', pending }
-  const dateKey = localDateKey(now)
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   try {
     return { ok: true, write: appendWorkLogEntries(file, dateKey, time, lines) }

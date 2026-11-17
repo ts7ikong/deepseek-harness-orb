@@ -301,3 +301,37 @@ export function readReminderState(profileDir: string): ReminderFiredState {
 export function writeReminderState(profileDir: string, state: ReminderFiredState): void {
   writeFileSync(join(profileDir, REMINDERS_STATE_FILE), `${JSON.stringify(state)}\n`)
 }
+
+/** The next reminder to come. */
+export interface UpcomingReminder {
+  readonly entry: ReminderEntry
+  /** When it is due. */
+  readonly at: Date
+}
+
+/**
+ * The next reminder due after a moment, looking up to a week ahead.
+ * @param config - the loaded config (apply {@link alignOffWork} first to follow the working hours).
+ * @param now - the current local time.
+ * @param fired - what already fired today; those are not offered again for today.
+ * @returns the earliest reminder still to come; undefined when reminders are off or none is scheduled.
+ */
+export function nextReminder(config: ReminderConfig, now: Date, fired: ReminderFiredState): UpcomingReminder | undefined {
+  if (!config.enabled) return undefined
+  const doneToday = new Set(fired.date === localDateKey(now) ? fired.ids : [])
+  let best: UpcomingReminder | undefined
+  for (let ahead = 0; ahead <= 7; ahead += 1) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ahead)
+    for (const entry of config.reminders) {
+      if (!entry.days.includes(day.getDay())) continue
+      if (ahead === 0 && doneToday.has(entry.id)) continue
+      const match = TIME_PATTERN.exec(entry.time)
+      if (match === null) continue
+      const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Number(match[1]), Number(match[2]), 0, 0)
+      if (at.getTime() <= now.getTime()) continue
+      if (best === undefined || at.getTime() < best.at.getTime()) best = { entry, at }
+    }
+    if (best !== undefined) return best
+  }
+  return best
+}

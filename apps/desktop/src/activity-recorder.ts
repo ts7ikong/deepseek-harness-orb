@@ -49,6 +49,13 @@ export function makeActivitySample(
 /** Handle returned by {@link startActivityRecorder}. */
 export interface ActivityRecorder {
   stop(): void
+  /** The same for a given day (`YYYY-MM-DD`); examples are the days before it. */
+  day(dateKey: string): {
+    readonly samples: ActivitySample[]
+    readonly intervalMs: number
+    readonly examples: WorkLogDay[]
+    readonly notes: ScreenNote[]
+  }
   /** Today's samples, the sampling interval, past report entries as writing examples, and screen descriptions. */
   today(): {
     readonly samples: ActivitySample[]
@@ -115,29 +122,30 @@ export function startActivityRecorder(options: {
     if (!stopped) timer = setTimeout(tick, (config?.intervalSeconds ?? 30) * 1000)
   }
 
+  /** One day's samples, the sampling interval, writing examples from the days before it, and screen descriptions. */
+  const day = (dateKey: string) => ({
+    samples: readActivityDay(options.profileDir, dateKey),
+    intervalMs: (config?.intervalSeconds ?? 30) * 1000,
+    examples: readWorkLogExamples(
+      resolveWorkLogFile(config?.workLogFile ?? '', options.profileDir),
+      config?.exampleDays ?? 0,
+      dateKey,
+    ),
+    // The old assistant's descriptions (visionDir) and this app's own are used together.
+    notes: mergeScreenNotes(
+      readScreenNotes(config?.visionDir ?? '', dateKey),
+      readScreenNotes(join(options.profileDir, NATIVE_VISION_DIR), dateKey),
+    ),
+  })
+
   tick()
   return {
     stop: () => {
       stopped = true
       if (timer !== undefined) clearTimeout(timer)
     },
-    today: () => {
-      const todayKey = localDateKey(new Date())
-      return {
-        samples: readActivityDay(options.profileDir, todayKey),
-        intervalMs: (config?.intervalSeconds ?? 30) * 1000,
-        examples: readWorkLogExamples(
-          resolveWorkLogFile(config?.workLogFile ?? '', options.profileDir),
-          config?.exampleDays ?? 0,
-          todayKey,
-        ),
-        // The old assistant's descriptions (visionDir) and this app's own are used together.
-        notes: mergeScreenNotes(
-          readScreenNotes(config?.visionDir ?? '', todayKey),
-          readScreenNotes(join(options.profileDir, NATIVE_VISION_DIR), todayKey),
-        ),
-      }
-    },
+    today: () => day(localDateKey(new Date())),
+    day,
     settings: () => config,
   }
 }

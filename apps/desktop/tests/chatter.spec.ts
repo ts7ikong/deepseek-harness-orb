@@ -229,8 +229,8 @@ describe('bubble window', () => {
     expect(bubbleBounds({ x: 1850, y: 500, width: 96, height: 96 }, area).x).toBe(1920 - width)
   })
 
-  it('drops below the clock when the ball is at the top of the screen', () => {
-    expect(bubbleBounds({ x: 800, y: 20, width: 96, height: 96 }, area).y).toBeGreaterThan(100)
+  it('drops below the ball when it is at the top of the screen', () => {
+    expect(bubbleBounds({ x: 800, y: 20, width: 96, height: 96 }, area).y).toBe(20 + 96 - 12)
   })
 
   it('carries the line in the page address, and the page shows it and closes on a click', () => {

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>灵动岛</title>
+    <link rel="stylesheet" href="orb-face.css">
+    <link rel="stylesheet" href="island.css">
+  </head>
+  <body class="face-mode">
+    <main id="island" data-mode="collapsed" hidden>
+      <div id="pill">
+        <header id="bar">
+          <button id="face-button" type="button" title="取出悬浮球" aria-label="取出悬浮球">
+            <div id="ball"><div id="ball-face"></div></div>
+          </button>
+          <div id="center">
+            <div id="info">
+              <span id="time"></span>
+              <span id="meter" hidden><i id="meter-fill"></i></span>
+              <span id="percent"></span>
+              <span id="left"></span>
+            </div>
+            <div id="status" hidden></div>
+            <div id="line" hidden></div>
+            <div id="reminder-title" hidden></div>
+          </div>
+        </header>
+
+        <section id="panel">
+          <div class="columns">
+            <div class="column">
+              <h2>今日日报</h2>
+              <ul id="entries"></ul>
+              <p id="entries-empty" hidden>今天还没有记录</p>
+            </div>
+            <div class="column">
+              <h2>待办</h2>
+              <ul id="todos"></ul>
+              <form id="todo-form" autocomplete="off">
+                <input id="todo-input" type="text" maxlength="80" placeholder="加一条待办，回车保存">
+              </form>
+            </div>
+          </div>
+          <p id="next"></p>
+          <div id="actions">
+            <button type="button" data-open="backfill">补写日报</button>
+            <button type="button" data-open="weekly">生成周报</button>
+            <button type="button" data-open="worklog">工作记录</button>
+            <button type="button" data-open="hours">工作时间</button>
+            <button type="button" id="take-out">取出球</button>
+          </div>
+        </section>
+
+        <section id="reminder">
+          <p id="reminder-message"></p>
+          <div id="reminder-actions">
+            <button type="button" id="reminder-act" class="primary" hidden></button>
+            <button type="button" id="reminder-dismiss">知道了</button>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script src="orb-face.js"></script>
+    <script src="island.js"></script>
+  </body>
+</html>

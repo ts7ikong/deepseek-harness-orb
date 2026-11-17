@@ -30,6 +30,8 @@ export const DINGTALK_URL = 'dingtalk://'
 /** What the confirmation window shows when it opens. */
 export interface ReportInit {
   readonly kind: ReportKind
+  /** True when the draft is for today; otherwise it is a catch-up for an earlier day. */
+  readonly today: boolean
   readonly text: string
   readonly date: string
   /** Entries today's log already holds, which new ones are added after. */
@@ -40,7 +42,7 @@ export interface ReportInit {
 /** Handle returned by {@link startReportService}. */
 export interface ReportService {
   /** Open the window for a model reply, replacing any draft already open. */
-  showDraft(reply: string, kind?: ReportKind): void
+  showDraft(reply: string, kind?: ReportKind, date?: string): void
   stop(): void
 }
 
@@ -80,7 +82,13 @@ export function startReportService(options: {
       return false
     }
   })
-  let current: { readonly window: BrowserWindow; readonly lines: readonly string[]; readonly kind: ReportKind } | undefined
+  let current: {
+    readonly window: BrowserWindow
+    readonly lines: readonly string[]
+    readonly kind: ReportKind
+    /** The day the report is for (`YYYY-MM-DD`). */
+    readonly date: string
+  } | undefined
 
   const workLogFile = (): string => resolveWorkLogFile(options.settings()?.workLogFile ?? '', options.profileDir)
 
@@ -110,12 +118,13 @@ export function startReportService(options: {
     if (current === undefined || !owned(event.sender)) {
       throw new Error('dsh desktop: rejected report IPC from an unowned renderer')
     }
-    const today = new Date()
+    const todayKey = localDateKey(new Date())
     return {
       kind: current.kind,
+      today: current.date === todayKey,
       text: current.lines.join('\n'),
-      date: localDateKey(today),
-      existing: current.kind === 'daily' ? countWorkLogEntries(workLogFile(), localDateKey(today)) : 0,
+      date: current.date,
+      existing: current.kind === 'daily' ? countWorkLogEntries(workLogFile(), current.date) : 0,
       pendingMark: PENDING_MARK,
     }
   })
@@ -138,18 +147,18 @@ export function startReportService(options: {
       clipboard.writeText(lines.join('\n'))
       return { ok: true, copied: lines.length }
     }
-    return confirmReportText(text, workLogFile(), new Date())
+    return confirmReportText(text, workLogFile(), new Date(), current?.date)
   })
 
   return {
-    showDraft: (reply, kind = 'daily') => {
+    showDraft: (reply, kind = 'daily', date = localDateKey(new Date())) => {
       current?.window.close()
       const window = showReportWindow({
         shellOrigin: options.shellOrigin,
         preload: options.preload,
         near: options.ballBounds(),
       })
-      const opened = { window, lines: cleanReportLines(reply), kind }
+      const opened = { window, lines: cleanReportLines(reply), kind, date }
       current = opened
       window.once('closed', () => {
         if (current === opened) current = undefined

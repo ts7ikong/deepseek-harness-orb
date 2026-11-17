@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>补写日报</title>
+    <link rel="stylesheet" href="backfill.css">
+  </head>
+  <body>
+    <main id="card">
+      <header id="head">
+        <h1>补写日报</h1>
+      </header>
+      <p id="intro">选一天，我根据那天的电脑使用记录和屏幕描述生成日报草稿，你改好后记入那一天的工作日志。</p>
+      <div id="days" role="listbox" aria-label="日期"></div>
+      <p id="status" role="status"></p>
+      <footer>
+        <button id="go" class="primary" type="button" disabled>生成草稿</button>
+        <button id="cancel" class="ghost" type="button">取消</button>
+      </footer>
+    </main>
+    <script src="backfill.js"></script>
+  </body>
+</html>

@@ -72,8 +72,7 @@ export function floatingContextMenuTemplate(
   selection?: { readonly enabled: boolean; readonly onToggle: () => void },
   agents?: FloatingAgentMenuState,
   millifraction?: { readonly enabled: boolean; readonly onToggle: () => void },
-  onOpenWorkHours?: () => void,
-  onOpenWorkLog?: () => void,
+  personalItems?: readonly PersonalMenuItem[],
 ): MenuItemConstructorOptions[] {
   const labels = { empty: messages.floatingNoModels, defaultEffort: messages.floatingEffortDefault }
   const actions: MenuItemConstructorOptions[] = [
@@ -102,12 +101,9 @@ export function floatingContextMenuTemplate(
     ]),
     { label: messages.floatingQuit, click: onQuit },
   ]
-  const personal: MenuItemConstructorOptions[] = []
-  if (onOpenWorkLog !== undefined) personal.push({ label: WORK_LOG_MENU_LABEL, click: onOpenWorkLog })
-  if (onOpenWorkHours !== undefined) personal.push({ label: WORK_HOURS_MENU_LABEL, click: onOpenWorkHours })
-  if (personal.length > 0) {
+  if (personalItems !== undefined && personalItems.length > 0) {
     const quitIndex = actions.findIndex(item => item.label === messages.floatingQuit)
-    actions.splice(quitIndex, 0, ...personal)
+    actions.splice(quitIndex, 0, ...personalItems.map(item => ({ label: item.label, click: item.click })))
   }
   if (selection !== undefined || millifraction !== undefined) {
     const extras: MenuItemConstructorOptions[] = []
@@ -137,11 +133,11 @@ export function floatingContextMenuTemplate(
   ]
 }
 
-/** Right-click item that opens the working-hours settings window. */
-export const WORK_HOURS_MENU_LABEL = '工作时间设置…'
-
-/** Right-click item that opens the work log window. */
-export const WORK_LOG_MENU_LABEL = '查看工作记录…'
+/** An item of the ball's own right-click menu, shown just above Quit. */
+export interface PersonalMenuItem {
+  readonly label: string
+  readonly click: () => void
+}
 
 /** Collapsed circular overlay size. */
 export const FLOATING_BALL_SIZE = 72
@@ -257,7 +253,7 @@ function isCollapsedOverlay(bounds: OverlayRect): boolean {
   return bounds.width <= FLOATING_BALL_WINDOW_SIZE && bounds.height <= FLOATING_BALL_WINDOW_SIZE
 }
 
-function collapsedWindowBounds(ball: { readonly x: number; readonly y: number }): OverlayRect {
+export function collapsedWindowBounds(ball: { readonly x: number; readonly y: number }): OverlayRect {
   return {
     x: ball.x - FLOATING_CHROME_INSET,
     y: ball.y - FLOATING_CHROME_INSET,
@@ -651,8 +647,7 @@ export function createFloatingWindow(
   selection?: { readonly enabled: () => boolean; readonly toggle: () => void },
   agents?: FloatingAgentMenuSource,
   millifraction?: { readonly enabled: () => boolean; readonly toggle: () => void },
-  onOpenWorkHours?: () => void,
-  onOpenWorkLog?: () => void,
+  personalItems?: readonly PersonalMenuItem[],
 ): BrowserWindow {
   const bounds = collapsedWindowBounds(defaultFloatingBallOrigin(screen.getPrimaryDisplay().workArea))
   const window = new BrowserWindow({
@@ -696,8 +691,7 @@ export function createFloatingWindow(
       selection,
       agents,
       millifraction,
-      onOpenWorkHours,
-      onOpenWorkLog,
+      personalItems,
     )
   })
   return window
@@ -712,8 +706,7 @@ async function popupFloatingContextMenu(
   selection: { readonly enabled: () => boolean; readonly toggle: () => void } | undefined,
   agents: FloatingAgentMenuSource | undefined,
   millifraction: { readonly enabled: () => boolean; readonly toggle: () => void } | undefined,
-  onOpenWorkHours: (() => void) | undefined,
-  onOpenWorkLog: (() => void) | undefined,
+  personalItems: readonly PersonalMenuItem[] | undefined,
 ): Promise<void> {
   const catalog = agents === undefined ? undefined : await agents.loadCatalog().catch(() => undefined)
   if (window.isDestroyed()) return
@@ -733,8 +726,7 @@ async function popupFloatingContextMenu(
     millifraction === undefined
       ? undefined
       : { enabled: millifraction.enabled(), onToggle: millifraction.toggle },
-    onOpenWorkHours,
-    onOpenWorkLog,
+    personalItems,
   )).popup({ window })
 }
 

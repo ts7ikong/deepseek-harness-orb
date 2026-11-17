@@ -89,12 +89,18 @@
       </form>
     </section>
     <button id="ball" type="button">
+      <svg id="work-ring" viewBox="0 0 88 88" aria-hidden="true" focusable="false">
+        <circle class="ring-track" cx="44" cy="44" r="40"></circle>
+        <circle id="work-ring-fill" class="ring-fill" cx="44" cy="44" r="40" transform="rotate(-90 44 44)"></circle>
+      </svg>
       <div id="ball-face"></div>
+      <svg id="work-percent" aria-hidden="true" focusable="false"></svg>
       <img id="ball-gif" src="deepseek-avatar-square.gif" alt="" draggable="false">
     </button>
     <button id="dock-tab" type="button" hidden aria-hidden="true"></button>
     <button id="stop" type="button" hidden></button>
     <script src="orb-face.js"></script>
+    <script src="work-ring.js"></script>
     <script src="floating.js"></script>
   </body>
 </html>

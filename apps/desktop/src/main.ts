@@ -36,9 +36,12 @@ import { startChatter } from './chatter.ts'
 import { COLLAPSED_BALL_MAX, startClockService } from './clock-service.ts'
 import { startCursorFeed } from './cursor-feed.ts'
 import { ensureOrbPersonaFile } from './orb-persona.ts'
+import { localDateKey } from './reminders.ts'
 import { startReminderService } from './reminder-service.ts'
 import { startScreenVision } from './screen-vision.ts'
 import { readScheduleConfig } from './work-schedule.ts'
+import { readIslandActive, shouldEnterIsland, startIslandService } from './island-service.ts'
+import { startBackfillService } from './backfill-service.ts'
 import { startWorkLogService } from './worklog-service.ts'
 import { startScheduleService } from './schedule-service.ts'
 import { startReportService, type ReportKind } from './report-service.ts'
@@ -56,6 +59,7 @@ import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLoc
 import {
   applyFloatingOverlayGuard,
   clampFloatingWindow,
+  collapsedWindowBounds,
   createFloatingWindow,
   moveFloatingBall,
   OVERLAY_GUARD_INPUT_APPLY_MS,
@@ -940,6 +944,14 @@ async function main(): Promise<void> {
     accessibilityTrusted: () => systemPreferences.isTrustedAccessibilityClient(false),
   })
   // The working-hours window; it follows the ball, which is created just below.
+  const backfillService = startBackfillService({
+    profileDir: paths.profile,
+    settings: () => activityRecorder.settings(),
+    shellOrigin: `${SCHEME}://shell`,
+    preload: shellPreload,
+    ballBounds: () => (floatingShell?.isDestroyed() === false ? floatingShell.getBounds() : undefined),
+    onGenerate: (date) => { askForDailyReport(date) },
+  })
   const workLogService = startWorkLogService({
     profileDir: paths.profile,
     settings: () => activityRecorder.settings(),
@@ -970,13 +982,47 @@ async function main(): Promise<void> {
       const current = readMillifractionCoordinates(paths.profile).enabled
       void confirmMillifractionEnabled(!current, floatingShell)
     },
-  }, () => { scheduleService.open() }, () => { workLogService.open() })
-  floatingWindow.once('ready-to-show', () => { floatingWindow.showInactive() })
+  }, [
+    { label: '补写日报…', click: () => { backfillService.open() } },
+    { label: '生成本周周报…', click: () => { askForWeeklyReport() } },
+    { label: '查看工作记录…', click: () => { workLogService.open() } },
+    { label: '工作时间设置…', click: () => { scheduleService.open() } },
+  ])
+  // The ball is shown, unless it was an island when the app last ran.
+  floatingWindow.once('ready-to-show', () => {
+    if (readIslandActive(paths.profile)) islandService.enter()
+    else floatingWindow.showInactive()
+  })
   // Stream the pointer position to the ball so its eyes follow the cursor across the whole screen.
   const cursorFeed = startCursorFeed(floatingWindow, DESKTOP_IPC.floatingCursor)
   // Scheduled reminders (report time, knocking-off time) fly out of the ball and show in the middle of the screen.
   // The foreground program and window title are sampled locally (see orb-activity.json) to build the daily report.
   const activityRecorder = startActivityRecorder({ profileDir: paths.profile })
+  // Dropped at the top edge, the ball turns into an island: a capsule with the time, progress, status, a hover panel, and reminders.
+  const openTarget = (target: 'backfill' | 'weekly' | 'worklog' | 'hours'): void => {
+    if (target === 'backfill') backfillService.open()
+    else if (target === 'weekly') askForWeeklyReport()
+    else if (target === 'worklog') workLogService.open()
+    else scheduleService.open()
+  }
+  const islandService = startIslandService({
+    profileDir: paths.profile,
+    shellOrigin: `${SCHEME}://shell`,
+    preload: shellPreload,
+    ball: {
+      bounds: () => (floatingWindow.isDestroyed() ? undefined : floatingWindow.getBounds()),
+      hide: () => { if (!floatingWindow.isDestroyed()) floatingWindow.hide() },
+      showAt: (origin) => {
+        if (floatingWindow.isDestroyed()) return
+        floatingWindow.setBounds(collapsedWindowBounds(origin))
+        floatingWindow.showInactive()
+      },
+    },
+    schedule: () => readScheduleConfig(paths.profile).config,
+    workLogFile: () => resolveWorkLogFile(activityRecorder.settings()?.workLogFile ?? '', paths.profile),
+    nextReminder: () => reminderService.upcoming(),
+    onOpen: openTarget,
+  })
   // The date, time, and work progress sit in a small click-through window under the ball (hours: orb-schedule.json).
   const clockService = startClockService({
     profileDir: paths.profile,
@@ -984,6 +1030,10 @@ async function main(): Promise<void> {
     preload: shellPreload,
     ballBounds: () => (floatingWindow.isDestroyed() ? undefined : floatingWindow.getBounds()),
     ballVisible: () => !floatingWindow.isDestroyed() && floatingWindow.isVisible(),
+    onAction: openTarget,
+    onProgress: (progress) => {
+      if (!floatingWindow.isDestroyed()) floatingWindow.webContents.send(DESKTOP_IPC.floatingWork, progress)
+    },
   })
   const followBall = (): void => { clockService.follow() }
   floatingWindow.on('move', followBall)
@@ -1000,6 +1050,10 @@ async function main(): Promise<void> {
     notes: () => activityRecorder.today().notes,
     collapsed: () => !floatingWindow.isDestroyed() && floatingWindow.getBounds().width <= COLLAPSED_BALL_MAX,
     onSpeak: (text) => {
+      if (islandService.active()) {
+        islandService.say(text)
+        return
+      }
       if (floatingWindow.isDestroyed()) return
       showBubble(text, { shellOrigin: `${SCHEME}://shell`, preload: shellPreload, ball: floatingWindow.getBounds() })
       floatingWindow.webContents.send(DESKTOP_IPC.floatingSpeak)
@@ -1014,15 +1068,20 @@ async function main(): Promise<void> {
   })
   // The ball sends the prompt to the model; when the reply is done the ball hands it back (reportDraft) for confirmation.
   let requestedReport: ReportKind = 'daily'
-  const askForReport = (kind: ReportKind, text: string): void => {
+  let requestedDate: string | undefined
+  const askForReport = (kind: ReportKind, text: string, dateKey?: string): void => {
     if (floatingWindow.isDestroyed()) return
     requestedReport = kind
-    floatingWindow.showInactive()
+    requestedDate = dateKey
+    if (!islandService.active()) floatingWindow.showInactive()
     floatingWindow.webContents.send(DESKTOP_IPC.reportPrompt, { text })
   }
-  const askForDailyReport = (): void => {
-    const { samples, intervalMs, examples, notes } = activityRecorder.today()
-    askForReport('daily', buildDailyReportPrompt(summarizeDay(samples, intervalMs), new Date(), examples, notes))
+  // A day other than today (the catch-up picker) is asked for by its date key; the draft is then written back to that day.
+  const askForDailyReport = (dateKey?: string): void => {
+    const day = dateKey ?? localDateKey(new Date())
+    const { samples, intervalMs, examples, notes } = activityRecorder.day(day)
+    const [year = 0, month = 1, date = 1] = day.split('-').map(Number)
+    askForReport('daily', buildDailyReportPrompt(summarizeDay(samples, intervalMs), new Date(year, month - 1, date), examples, notes), day)
   }
   // The weekly report is built from the week's work-log entries, so it is only as good as the daily ones.
   const askForWeeklyReport = (): void => {
@@ -1035,6 +1094,7 @@ async function main(): Promise<void> {
     shellOrigin: `${SCHEME}://shell`,
     ballBounds: () => (floatingWindow.isDestroyed() ? undefined : floatingWindow.getBounds()),
     preload: shellPreload,
+    island: { active: () => islandService.active(), show: entry => islandService.showReminder(entry) },
     onAction: (entry) => {
       if (entry.action === 'daily-report') askForDailyReport()
       if (entry.action === 'weekly-report') askForWeeklyReport()
@@ -1043,10 +1103,12 @@ async function main(): Promise<void> {
   app.on('will-quit', () => {
     cursorFeed.stop()
     clockService.stop()
+    islandService.stop()
     screenVision.stop()
     chatter.stop()
     scheduleService.stop()
     workLogService.stop()
+    backfillService.stop()
     reminderService.stop()
     reportService.stop()
     activityRecorder.stop()
@@ -1087,6 +1149,7 @@ async function main(): Promise<void> {
       selectionController.setHidInput(event.action === 'begin')
       // The ball's face shows "acting" only while the agent really holds the mouse and keyboard.
       if (!floatingShell.isDestroyed()) floatingShell.webContents.send(DESKTOP_IPC.floatingActing, event.action === 'begin')
+      islandService.setActing(event.action === 'begin')
     }
     const ids =overlayWindowExcludeIds(floatingShell, toolbarWindow, observationFrameWindow)
     if (event.mode === 'input' && event.action === 'begin') {
@@ -1130,9 +1193,16 @@ async function main(): Promise<void> {
     if (typeof x !== 'number' || typeof y !== 'number') throw new Error('dsh desktop: invalid floating move')
     return moveFloatingBall(floatingWindow, x, y, canDock !== false)
   })
-  ipcMain.handle(DESKTOP_IPC.floatingClamp, (event, canDock: unknown) => {
+  ipcMain.handle(DESKTOP_IPC.floatingClamp, async (event, canDock: unknown) => {
     shellSender(event)
-    return clampFloatingWindow(floatingWindow, canDock !== false)
+    const clamped = await clampFloatingWindow(floatingWindow, canDock !== false)
+    // A collapsed ball dropped against the top edge of the screen turns into the island.
+    const bounds = floatingWindow.getBounds()
+    if (clamped.docked === undefined && bounds.width <= COLLAPSED_BALL_MAX) {
+      const area = screen.getDisplayNearestPoint({ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }).workArea
+      if (shouldEnterIsland(bounds, area)) islandService.enter()
+    }
+    return clamped
   })
   ipcMain.handle(DESKTOP_IPC.floatingUnsnap, (event) => {
     shellSender(event)
@@ -1185,6 +1255,7 @@ async function main(): Promise<void> {
     shellSender(event)
     if (typeof running !== 'boolean') throw new Error('dsh desktop: floating running requires a boolean')
     selectionController?.setSessionRunning(running)
+    islandService.setRunning(running)
   })
   ipcMain.handle(DESKTOP_IPC.floatingEditing, (event, editing: unknown) => {
     shellSender(event)
@@ -1203,7 +1274,7 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.reportDraft, (event, text: unknown) => {
     shellSender(event)
     if (typeof text !== 'string' || text.trim() === '') throw new Error('dsh desktop: report draft requires text')
-    reportService.showDraft(text, requestedReport)
+    reportService.showDraft(text, requestedReport, requestedDate)
   })
   ipcMain.handle(DESKTOP_IPC.floatingTccGet, (event) => {
     shellSender(event)

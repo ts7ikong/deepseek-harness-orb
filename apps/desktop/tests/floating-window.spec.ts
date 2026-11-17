@@ -309,8 +309,9 @@ describe('floating window context menu', () => {
     ])
   })
 
-  it('puts the working-hours item just above Quit when the settings window can be opened', () => {
-    const onOpenWorkHours = vi.fn()
+  it('puts the personal items, in the given order, just above Quit', () => {
+    const first = vi.fn()
+    const second = vi.fn()
     const template = floatingContextMenuTemplate(
       { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },
       messages,
@@ -319,33 +320,25 @@ describe('floating window context menu', () => {
       undefined,
       undefined,
       undefined,
-      onOpenWorkHours,
+      [{ label: '补写日报…', click: first }, { label: '工作时间设置…', click: second }],
     )
-    expect(template.slice(-2)).toEqual([
-      { label: '工作时间设置…', click: onOpenWorkHours },
+    expect(template.slice(-3)).toEqual([
+      { label: '补写日报…', click: first },
+      { label: '工作时间设置…', click: second },
       { label: 'Quit DeepSeek Orb', click: onQuit },
     ])
   })
 
-  it('lists the work log before the working hours, both just above Quit', () => {
-    const onOpenWorkHours = vi.fn()
-    const onOpenWorkLog = vi.fn()
-    const template = floatingContextMenuTemplate(
+  it('adds nothing when the ball has no items of its own', () => {
+    const plain = floatingContextMenuTemplate(
       { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },
-      messages,
-      onOpenMain,
-      onQuit,
-      undefined,
-      undefined,
-      undefined,
-      onOpenWorkHours,
-      onOpenWorkLog,
+      messages, onOpenMain, onQuit,
     )
-    expect(template.slice(-3)).toEqual([
-      { label: '查看工作记录…', click: onOpenWorkLog },
-      { label: '工作时间设置…', click: onOpenWorkHours },
-      { label: 'Quit DeepSeek Orb', click: onQuit },
-    ])
+    const empty = floatingContextMenuTemplate(
+      { isEditable: false, editFlags: { canCut: false, canCopy: false, canPaste: false } },
+      messages, onOpenMain, onQuit, undefined, undefined, undefined, [],
+    )
+    expect(empty).toEqual(plain)
   })
 
   it('keeps Open Main and Quit when the target is not editable', () => {

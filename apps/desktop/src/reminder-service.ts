@@ -9,6 +9,7 @@ import { readScheduleConfig } from './work-schedule.ts'
 import {
   alignOffWork,
   dueReminders,
+  nextReminder,
   markReminderFired,
   readReminderConfig,
   readReminderState,
@@ -16,6 +17,7 @@ import {
   writeReminderState,
   type ReminderConfig,
   type ReminderEntry,
+  type UpcomingReminder,
 } from './reminders.ts'
 
 /** How often the schedule is checked; reminders therefore appear within this long of their time. */
@@ -26,12 +28,24 @@ export const REMINDER_LOG_FILE = 'orb-reminders.log'
 
 const DISMISS_HINT = '点击任意处关闭'
 
+/** A reminder with a button: clicking elsewhere closes it without doing anything, so the hint says so. */
+const DISMISS_HINT_WITH_ACTION = '点上面的按钮开始；点其他地方只会关闭'
+
 /** Handle returned by {@link startReminderService}. */
 export interface ReminderService {
   /** Stop checking the schedule. A pop-up already on screen stays until dismissed. */
   stop(): void
   /** Show a reminder now, regardless of its schedule. */
   fire(entry: ReminderEntry): void
+  /** The next reminder to come, following the user's off-work time; undefined when none is scheduled. */
+  upcoming(): UpcomingReminder | undefined
+}
+
+/** Where reminders unfold when the island is up, instead of the pop-up in the middle of the screen. */
+export interface ReminderIsland {
+  active(): boolean
+  /** Shows the reminder as a card; resolves when the user presses its button or dismisses it. */
+  show(entry: ReminderEntry): Promise<'acted' | 'dismissed'>
 }
 
 /**
@@ -50,6 +64,7 @@ export function startReminderService(options: {
   readonly ballBounds: () => { x: number; y: number; width: number; height: number } | undefined
   readonly preload: string
   readonly onAction: (entry: ReminderEntry) => void
+  readonly island?: ReminderIsland
   readonly log?: (message: string) => void
 }): ReminderService {
   const log = options.log ?? ((message: string): void => { console.warn(message) })
@@ -67,7 +82,14 @@ export function startReminderService(options: {
       throw new Error('dsh desktop: rejected reminder IPC from an unowned renderer')
     }
     const { entry } = current
-    if (entry.action !== undefined) options.onAction(entry)
+    record(`action ${entry.id} ${entry.action ?? '(none)'}`)
+    if (entry.action === undefined) return
+    try {
+      options.onAction(entry)
+    } catch (error) {
+      record(`action ${entry.id} failed: ${String(error)}`)
+      throw error
+    }
   })
 
   function record(message: string): void {
@@ -103,9 +125,16 @@ export function startReminderService(options: {
     try {
       for (let entry = queue.shift(); entry !== undefined; entry = queue.shift()) {
         if (config?.sound === true) shell.beep()
+        if (options.island?.active() === true) {
+          record(`shown ${entry.id} (island)`)
+          const outcome = await options.island.show(entry)
+          record(`closed ${entry.id} (${outcome})`)
+          if (outcome === 'acted' && entry.action !== undefined) options.onAction(entry)
+          continue
+        }
         const shown = showReminder(entry, {
           shellOrigin: options.shellOrigin,
-          hint: DISMISS_HINT,
+          hint: entry.action === undefined ? DISMISS_HINT : DISMISS_HINT_WITH_ACTION,
           ball: options.ballBounds(),
           preload: options.preload,
         })
@@ -139,6 +168,11 @@ export function startReminderService(options: {
     for (const entry of due) enqueue(entry)
   }
 
+  const upcoming = (): UpcomingReminder | undefined => {
+    if (config === undefined) return undefined
+    return nextReminder(alignOffWork(config, readScheduleConfig(options.profileDir).config?.workEnd), new Date(), fired)
+  }
+
   const timer = setInterval(tick, REMINDER_CHECK_MS)
   tick()
   return {
@@ -147,5 +181,6 @@ export function startReminderService(options: {
       ipcMain.removeHandler(DESKTOP_IPC.reminderAction)
     },
     fire: enqueue,
+    upcoming,
   }
 }

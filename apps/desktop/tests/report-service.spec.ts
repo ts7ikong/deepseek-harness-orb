@@ -93,7 +93,7 @@ describe('startReportService', () => {
     writeFileSync(join(profileDir, 'orb-work-log.json'), JSON.stringify({ [today()]: [{ time: '12:00', content: '已有' }] }))
     service.showDraft('# 日报\n1. 处理甲\n- 处理乙（待补充）')
     const init = call(DESKTOP_IPC.reportInit, windows[0]?.webContents) as ReportInitShape
-    expect(init).toEqual({ kind: 'daily', text: '处理甲\n处理乙（待补充）', date: today(), existing: 1, pendingMark: '（待补充）' })
+    expect(init).toEqual({ kind: 'daily', today: true, text: '处理甲\n处理乙（待补充）', date: today(), existing: 1, pendingMark: '（待补充）' })
   })
 
   it('refuses every call from a renderer other than the open confirmation window', () => {

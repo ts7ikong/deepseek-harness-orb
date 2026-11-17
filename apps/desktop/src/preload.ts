@@ -43,6 +43,12 @@ const floating = {
     ipcRenderer.on(DESKTOP_IPC.floatingActing, handle)
     return () => { ipcRenderer.off(DESKTOP_IPC.floatingActing, handle) }
   },
+  /** Today's work progress for the ring around the ball; null when there is none to show. */
+  onWorkProgress: (listener: (progress: unknown) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, progress: unknown): void => { listener(progress) }
+    ipcRenderer.on(DESKTOP_IPC.floatingWork, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.floatingWork, handle) }
+  },
   /** The ball has just said something by itself (proactive chat); the face reacts. */
   onSpeak: (listener: () => void) => {
     const handle = (): void => { listener() }
@@ -89,11 +95,28 @@ const reminder = {
 
 /** The clock window below the ball receives its state once a second. */
 const clock = {
+  act: (action: string) => ipcRenderer.invoke(DESKTOP_IPC.menuAction, action),
   onState: (listener: (state: unknown) => void) => {
     const handle = (_event: unknown, state: unknown): void => { listener(state) }
     ipcRenderer.on(DESKTOP_IPC.clockState, handle)
     return () => { ipcRenderer.off(DESKTOP_IPC.clockState, handle) }
   },
+}
+
+/** Used only by the catch-up picker; the main process accepts it from that window alone. */
+const backfill = {
+  get: () => ipcRenderer.invoke(DESKTOP_IPC.backfillGet),
+  go: (date: string) => ipcRenderer.invoke(DESKTOP_IPC.backfillGo, date),
+}
+
+/** Used only by the island window; the main process accepts it from that window alone. */
+const island = {
+  onState: (listener: (state: unknown) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, state: unknown): void => { listener(state) }
+    ipcRenderer.on(DESKTOP_IPC.islandState, handle)
+    return () => { ipcRenderer.off(DESKTOP_IPC.islandState, handle) }
+  },
+  act: (action: unknown) => ipcRenderer.invoke(DESKTOP_IPC.islandAction, action),
 }
 
 /** Used only by the work log window; the main process accepts it from that window alone. */
@@ -146,6 +169,8 @@ contextBridge.exposeInMainWorld('dshDesktop', {
   clock,
   schedule,
   worklog,
+  island,
+  backfill,
   report,
   selection,
 })
