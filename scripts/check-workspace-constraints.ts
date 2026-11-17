@@ -64,13 +64,8 @@ const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh': ['lib/*.js', 'lib/types/*.d.ts'],
-  '@deepseek-ai/dsh-desktop-host': [
-    'lib/index.js', 'lib/cli.js',
-    'lib/computer-use-overlay-guard.js',
-    'lib/computer-use-orb-permission.js',
-    'lib/computer-use-orb-code-agent-model.js',
-    'lib/computer-use-orb-coordinate-mode.js',
-  ],
+  // The Host's entries share module state, so its bundle splits shared code into hashed chunks that ship beside them.
+  '@deepseek-ai/dsh-desktop-host': ['lib/*.js'],
   // Sourcemaps stay out by payload policy; the worker-preview surface
   // (dist/preview.html and dist/preview/) backs opt-in experimental
   // packages and is not published.

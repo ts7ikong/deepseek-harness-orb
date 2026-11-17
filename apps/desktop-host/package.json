@@ -7,12 +7,7 @@
   "type": "module",
   "main": "lib/index.js",
   "files": [
-    "lib/index.js",
-    "lib/cli.js",
-    "lib/computer-use-overlay-guard.js",
-    "lib/computer-use-orb-permission.js",
-    "lib/computer-use-orb-code-agent-model.js",
-    "lib/computer-use-orb-coordinate-mode.js"
+    "lib/*.js"
   ],
   "dependencies": {
     "koffi": "^3.1.0",
