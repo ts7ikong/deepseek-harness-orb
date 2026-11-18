@@ -30,6 +30,8 @@
     "lib/index.js",
     "lib/code-agent.js",
     "lib/user-background.js",
+    "lib/backend-*.js",
+    "lib/windows-native-*.js",
     "lib/macos-sck-capture",
     "lib/libmacos-sck-capture.dylib",
     "lib/types/**/*.d.ts"
